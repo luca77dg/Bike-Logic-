@@ -2,22 +2,23 @@
 import { createClient } from '@supabase/supabase-js';
 import { Bike, MaintenanceRecord } from '../types.ts';
 
-// Recupero configurazione dalle variabili d'ambiente
+// Recupero configurazione
 const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
 const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 
-// Inizializzazione client solo se le chiavi sono presenti
-const supabase = (supabaseUrl && supabaseAnonKey) 
+// Costante per l'utente (deve essere identica ovunque)
+const SHARED_USER_ID = 'bikelogic_global_user';
+
+export const supabase = (supabaseUrl && supabaseAnonKey) 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Identificativo utente per la demo (in produzione usare Supabase Auth)
-const USER_ID = 'default-rider';
-
 export const supabaseService = {
+  isConfigured: () => !!supabase,
+
   getBikes: async (): Promise<Bike[]> => {
     if (!supabase) {
-      console.warn("Supabase non configurato. Ritorno dati locali (mock).");
+      console.warn("Supabase non configurato. Caricamento da localStorage.");
       const local = localStorage.getItem('bikelogic_bikes');
       return local ? JSON.parse(local) : [];
     }
@@ -25,34 +26,36 @@ export const supabaseService = {
     const { data, error } = await supabase
       .from('bikes')
       .select('*')
-      .eq('user_id', USER_ID)
+      .eq('user_id', SHARED_USER_ID)
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error("Errore fetch bikes:", error);
+      console.error("Errore fetch bikes:", error.message);
       return [];
     }
     return data || [];
   },
   
   saveBike: async (bike: Bike): Promise<void> => {
+    const bikeToSave = {
+      ...bike,
+      user_id: SHARED_USER_ID // Forza l'ID corretto
+    };
+
     if (!supabase) {
       const bikes = await supabaseService.getBikes();
       const index = bikes.findIndex(b => b.id === bike.id);
-      if (index > -1) bikes[index] = bike; else bikes.push(bike);
+      if (index > -1) bikes[index] = bikeToSave; else bikes.push(bikeToSave);
       localStorage.setItem('bikelogic_bikes', JSON.stringify(bikes));
       return;
     }
 
     const { error } = await supabase
       .from('bikes')
-      .upsert({
-        ...bike,
-        user_id: USER_ID, // Garantisce la proprietà dei dati
-      }, { onConflict: 'id' });
+      .upsert(bikeToSave, { onConflict: 'id' });
 
     if (error) {
-      console.error("Errore salvataggio bike:", error);
+      console.error("Errore salvataggio cloud:", error.message);
       throw error;
     }
   },
@@ -67,14 +70,9 @@ export const supabaseService = {
     const { data, error } = await supabase
       .from('maintenance')
       .select('*')
-      .eq('bike_id', bikeId)
-      .order('created_at', { ascending: true });
+      .eq('bike_id', bikeId);
 
-    if (error) {
-      console.error("Errore fetch maintenance:", error);
-      return [];
-    }
-    return data || [];
+    return error ? [] : (data || []);
   },
 
   saveMaintenance: async (record: MaintenanceRecord): Promise<void> => {
@@ -87,36 +85,15 @@ export const supabaseService = {
       return;
     }
 
-    const { error } = await supabase
-      .from('maintenance')
-      .upsert(record, { onConflict: 'id' });
-
-    if (error) {
-      console.error("Errore salvataggio maintenance:", error);
-      throw error;
-    }
+    await supabase.from('maintenance').upsert(record);
   },
 
   deleteBike: async (id: string): Promise<void> => {
     if (!supabase) {
       const bikes = await supabaseService.getBikes();
       localStorage.setItem('bikelogic_bikes', JSON.stringify(bikes.filter(b => b.id !== id)));
-      const data = localStorage.getItem('bikelogic_maintenance');
-      if (data) {
-        const all: MaintenanceRecord[] = JSON.parse(data);
-        localStorage.setItem('bikelogic_maintenance', JSON.stringify(all.filter(m => m.bike_id !== id)));
-      }
       return;
     }
-
-    const { error } = await supabase
-      .from('bikes')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error("Errore eliminazione bike:", error);
-      throw error;
-    }
+    await supabase.from('bikes').delete().eq('id', id);
   }
 };
