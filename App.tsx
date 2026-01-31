@@ -1,22 +1,28 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { BikeCard } from './components/BikeCard.tsx';
 import { AIVision } from './components/AIVision.tsx';
+import { ImageCropper } from './components/ImageCropper.tsx';
 import { supabaseService } from './services/supabase.ts';
 import { extractBikeData } from './services/gemini.ts';
-import { Bike, MaintenanceRecord, BikeType } from './types.ts';
+import { Bike, MaintenanceRecord, BikeType, BikeSpecs } from './types.ts';
 
 const App: React.FC = () => {
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [maintenance, setMaintenance] = useState<Record<string, MaintenanceRecord[]>>({});
   const [loading, setLoading] = useState(true);
   const [activeAnalysis, setActiveAnalysis] = useState<Bike | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingBike, setEditingBike] = useState<Bike | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionStatus, setExtractionStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
+  
+  const [manualPhoto, setManualPhoto] = useState<string | null>(null);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkKey = useCallback(async () => {
     // @ts-ignore
@@ -64,7 +70,23 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddBike = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImageToCrop(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropComplete = (croppedImage: string) => {
+    setManualPhoto(croppedImage);
+    setImageToCrop(null);
+  };
+
+  const handleSaveBike = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage(null);
     
@@ -72,39 +94,98 @@ const App: React.FC = () => {
     const query = (formData.get('query') as string).trim();
     if (!query) return;
 
-    setIsExtracting(true);
-    setExtractionStatus("Interrogazione AI...");
+    const isNew = !editingBike;
+    
+    // Prepariamo l'oggetto base
+    const bikeSpecs: BikeSpecs = {
+      telaio: formData.get('specs_telaio') as string,
+      forcella: formData.get('specs_forcella') as string,
+      gruppo: formData.get('specs_gruppo') as string,
+      freni: formData.get('specs_freni') as string,
+      ruote: formData.get('specs_ruote') as string,
+      pneumatici: formData.get('specs_pneumatici') as string,
+      clearance_max: formData.get('specs_clearance') as string,
+      peso: formData.get('specs_peso') as string,
+      imageUrl: manualPhoto || (editingBike?.specs?.imageUrl) || null
+    };
 
-    try {
-      const aiResult = await extractBikeData(query, setExtractionStatus);
-      
-      const newBike: Bike = {
-        id: crypto.randomUUID(),
-        user_id: 'user',
-        name: aiResult?.extractedName || query,
-        type: (aiResult?.extractedType as BikeType) || (formData.get('type') as BikeType),
-        strava_gear_id: null,
-        total_km: parseFloat(formData.get('km') as string) || 0,
-        specs: aiResult?.specs
-      };
-      
-      await supabaseService.saveBike(newBike);
-      setShowAddForm(false);
-      fetchData();
-    } catch (err: any) {
-      if (err.message === "ENTITY_NOT_FOUND") {
-        setHasApiKey(false);
-        setErrorMessage("Chiave API non valida. Riconnetti il profilo.");
-        handleOpenKeySelector();
-      } else if (err.message === "QUOTA_EXCEEDED") {
-        setErrorMessage("Limite di richieste raggiunto (Quota Esaurita). Attendi 60 secondi o abilita la fatturazione su Google AI Studio.");
-      } else {
-        setErrorMessage(err.message || "Errore durante la ricerca.");
+    if (isNew) {
+      setIsExtracting(true);
+      setExtractionStatus("Interrogazione AI...");
+      try {
+        let aiResult = null;
+        try {
+          aiResult = await extractBikeData(query, setExtractionStatus);
+        } catch (err) {
+          console.warn("AI extraction failed, proceeding with manual entry", err);
+        }
+        
+        const newBike: Bike = {
+          id: crypto.randomUUID(),
+          user_id: 'user',
+          name: aiResult?.extractedName || query,
+          type: (aiResult?.extractedType as BikeType) || (formData.get('type') as BikeType),
+          strava_gear_id: null,
+          total_km: parseFloat(formData.get('km') as string) || 0,
+          product_url: formData.get('product_url') as string || "",
+          specs: {
+            ...(aiResult?.specs || {}),
+            imageUrl: manualPhoto || aiResult?.specs?.imageUrl || null
+          }
+        };
+        await supabaseService.saveBike(newBike);
+        setShowForm(false);
+      } catch (err: any) {
+         handleError(err);
+      } finally {
+        setIsExtracting(false);
       }
-    } finally {
-      setIsExtracting(false);
-      setExtractionStatus(null);
+    } else {
+      // Update esistente
+      const updatedBike: Bike = {
+        ...editingBike!,
+        name: query,
+        type: formData.get('type') as BikeType,
+        total_km: parseFloat(formData.get('km') as string) || 0,
+        product_url: formData.get('product_url') as string || "",
+        specs: {
+          ...editingBike!.specs,
+          ...bikeSpecs
+        }
+      };
+      await supabaseService.saveBike(updatedBike);
+      setShowForm(false);
     }
+    
+    setManualPhoto(null);
+    setEditingBike(null);
+    fetchData();
+  };
+
+  const handleError = (err: any) => {
+    if (err.message === "ENTITY_NOT_FOUND") {
+      setHasApiKey(false);
+      setErrorMessage("Chiave API non valida. Riconnetti il profilo.");
+      handleOpenKeySelector();
+    } else if (err.message === "QUOTA_EXCEEDED") {
+      setErrorMessage("Limite di richieste raggiunto (Quota Esaurita).");
+    } else {
+      setErrorMessage(err.message || "Errore durante il salvataggio.");
+    }
+  };
+
+  const openAddForm = () => {
+    setErrorMessage(null);
+    setEditingBike(null);
+    setManualPhoto(null);
+    setShowForm(true);
+  };
+
+  const openEditForm = (bike: Bike) => {
+    setErrorMessage(null);
+    setEditingBike(bike);
+    setManualPhoto(bike.specs?.imageUrl || null);
+    setShowForm(true);
   };
 
   return (
@@ -125,7 +206,7 @@ const App: React.FC = () => {
               <i className="fa-solid fa-key"></i> Collega API
             </button>
           )}
-          <button onClick={() => { setErrorMessage(null); setShowAddForm(true); }} className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-blue-900/40 hover:bg-blue-500 transition-all">
+          <button onClick={openAddForm} className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-blue-900/40 hover:bg-blue-500 transition-all">
             <i className="fa-solid fa-plus"></i> Aggiungi
           </button>
         </div>
@@ -146,89 +227,173 @@ const App: React.FC = () => {
               bike={bike} 
               maintenance={maintenance[bike.id] || []} 
               onAnalyze={setActiveAnalysis} 
-              onUpdateKm={() => {}} 
+              onEdit={openEditForm}
+              onUpdateKm={() => {
+                const newKm = prompt("Inserisci i km attuali:", bike.total_km.toString());
+                if (newKm !== null) {
+                  const updated = { ...bike, total_km: parseFloat(newKm) || 0 };
+                  supabaseService.saveBike(updated).then(fetchData);
+                }
+              }} 
               onDelete={async (b) => {
                 if(confirm("Eliminare questa bici?")) {
                   await supabaseService.deleteBike(b.id);
                   fetchData();
                 }
               }} 
+              onRefresh={fetchData}
             />
           ))}
         </div>
       )}
 
-      {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-[3.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-            <div className="p-10 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
-              <h2 className="text-3xl font-black text-white">Nuova Bici</h2>
-              <button onClick={() => setShowAddForm(false)} className="bg-slate-800 h-12 w-12 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300 my-8">
+            <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
+              <h2 className="text-2xl font-black text-white">{editingBike ? 'Modifica Bici' : 'Nuova Bici'}</h2>
+              <button onClick={() => setShowForm(false)} className="bg-slate-800 h-10 w-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors">
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
             
-            <form onSubmit={handleAddBike} className="p-10 space-y-8">
+            <form onSubmit={handleSaveBike} className="p-8 space-y-8 custom-scrollbar max-h-[75vh] overflow-y-auto">
               {errorMessage && (
-                <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-[2rem] text-red-400 text-sm font-bold flex gap-4 items-start">
-                  <i className="fa-solid fa-triangle-exclamation text-xl mt-1"></i>
-                  <div className="flex-1">
-                    <p>{errorMessage}</p>
-                    <a 
-                      href="https://aistudio.google.com/app/apikey" 
-                      target="_blank" 
-                      className="inline-block mt-2 text-xs underline opacity-80"
-                    >
-                      Verifica Quota in AI Studio
-                    </a>
-                  </div>
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-bold flex gap-3">
+                  <i className="fa-solid fa-triangle-exclamation mt-1"></i>
+                  <p>{errorMessage}</p>
                 </div>
               )}
 
+              {/* SEZIONE BASE */}
               <div className="space-y-6">
-                <div className="p-8 bg-blue-600/5 rounded-[2.5rem] border border-blue-600/10">
-                  <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Modello per Ricerca AI</label>
-                  <input 
-                    name="query" 
-                    autoFocus 
-                    required 
-                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-6 py-5 text-white text-xl outline-none focus:ring-4 ring-blue-600/20" 
-                    placeholder="Es: Canyon Grizl CF SL 8" 
-                  />
-                  {isExtracting && (
-                    <div className="mt-4 flex items-center gap-3 text-blue-400 text-xs font-black">
-                       <i className="fa-solid fa-spinner fa-spin"></i>
-                       {extractionStatus}
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
+                <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Informazioni Base</h3>
+                <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50 space-y-6">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Km Attuali</label>
-                    <input type="number" name="km" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none" placeholder="0" />
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Modello / Nome</label>
+                    <input 
+                      name="query" 
+                      defaultValue={editingBike?.name || ''}
+                      required 
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 ring-blue-600/50" 
+                      placeholder="Es: Trek Emonda SL 6" 
+                    />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Km Totali</label>
+                      <input type="number" name="km" defaultValue={editingBike?.total_km || 0} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Categoria</label>
+                      <select name="type" defaultValue={editingBike?.type || 'MTB'} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none">
+                        <option value="MTB">MTB</option>
+                        <option value="Corsa">Corsa</option>
+                        <option value="Gravel">Gravel</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Fallback Categoria</label>
-                    <select name="type" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none">
-                      <option value="MTB">MTB</option>
-                      <option value="Corsa">Corsa</option>
-                      <option value="Gravel">Gravel</option>
-                    </select>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Link Sito Produttore</label>
+                    <input 
+                      name="product_url" 
+                      defaultValue={editingBike?.product_url || ''}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 ring-blue-600/50" 
+                      placeholder="https://www.marca.it/modello" 
+                    />
                   </div>
                 </div>
               </div>
 
-              <button 
-                type="submit" 
-                disabled={isExtracting} 
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black py-6 rounded-[2rem] shadow-xl shadow-blue-900/40 flex items-center justify-center gap-4 transition-all text-xl"
-              >
-                {isExtracting ? 'Elaborazione...' : 'Ricerca e Salva'}
-              </button>
+              {/* SEZIONE FOTO */}
+              <div className="space-y-6">
+                <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Foto</h3>
+                <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50">
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative aspect-video w-full bg-slate-900 rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-500/50 transition-all group"
+                  >
+                    {manualPhoto ? (
+                      <div className="relative w-full h-full">
+                        <img src={manualPhoto} className="w-full h-full object-cover" alt="Preview" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black text-white uppercase tracking-widest border border-white/20">Cambia o ricentra</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <i className="fa-solid fa-image text-3xl text-slate-700 mb-2 block"></i>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">Aggiungi foto</p>
+                      </div>
+                    )}
+                  </div>
+                  <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" accept="image/*" />
+                </div>
+              </div>
+
+              {/* SEZIONE SPECS TECNICHE */}
+              <div className="space-y-6">
+                <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Dettagli Tecnici (Manuali)</h3>
+                <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { id: 'telaio', label: 'Telaio' },
+                    { id: 'forcella', label: 'Forcella' },
+                    { id: 'gruppo', label: 'Gruppo' },
+                    { id: 'freni', label: 'Freni' },
+                    { id: 'ruote', label: 'Ruote' },
+                    { id: 'pneumatici', label: 'Pneumatici' },
+                    { id: 'clearance', label: 'Passaggio Ruota Max' },
+                    { id: 'peso', label: 'Peso' },
+                  ].map(spec => (
+                    <div key={spec.id}>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{spec.label}</label>
+                      <input 
+                        name={`specs_${spec.id}`} 
+                        defaultValue={(editingBike?.specs as any)?.[spec.id === 'clearance' ? 'clearance_max' : spec.id] || ''}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm outline-none" 
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-4 sticky bottom-0 bg-slate-900 py-4 border-t border-slate-800">
+                <button 
+                  type="submit" 
+                  disabled={isExtracting} 
+                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-900/20 flex items-center justify-center gap-3 transition-all text-lg"
+                >
+                  {isExtracting ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin"></i>
+                      <span>{extractionStatus}</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-check"></i>
+                      <span>{editingBike ? 'Salva Modifiche' : 'Crea con Ricerca AI'}</span>
+                    </>
+                  )}
+                </button>
+                {!editingBike && (
+                  <p className="text-[10px] text-slate-500 text-center mt-3 font-bold uppercase tracking-tight italic">
+                    L'IA proverà a compilare i dettagli tecnici per te
+                  </p>
+                )}
+              </div>
             </form>
           </div>
         </div>
+      )}
+
+      {imageToCrop && (
+        <ImageCropper 
+          image={imageToCrop} 
+          onCropComplete={handleCropComplete} 
+          onCancel={() => setImageToCrop(null)} 
+        />
       )}
 
       {activeAnalysis && (

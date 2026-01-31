@@ -2,17 +2,21 @@
 import React, { useState } from 'react';
 import { Bike, MaintenanceRecord } from '../types.ts';
 import { BikeSpecsModal } from './BikeSpecs.tsx';
+import { MaintenanceManager } from './MaintenanceManager.tsx';
 
 interface BikeCardProps {
   bike: Bike;
   maintenance: MaintenanceRecord[];
   onAnalyze: (bike: Bike) => void;
+  onEdit: (bike: Bike) => void;
   onUpdateKm: (bike: Bike) => void;
   onDelete: (bike: Bike) => void;
+  onRefresh: () => void;
 }
 
-export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze, onUpdateKm, onDelete }) => {
+export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze, onEdit, onUpdateKm, onDelete, onRefresh }) => {
   const [showSpecs, setShowSpecs] = useState(false);
+  const [showMaintManager, setShowMaintManager] = useState(false);
 
   const getIcon = () => {
     switch(bike.type) {
@@ -23,91 +27,140 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
   };
 
   return (
-    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all group relative">
-      <div className="p-6">
+    <div className="bg-slate-900/80 border border-slate-800 rounded-[2.5rem] overflow-hidden hover:border-blue-500/30 transition-all group relative flex flex-col shadow-xl">
+      {/* Immagine di Anteprima - Aspect Ratio Fisso 16:9 */}
+      <div className="aspect-video w-full bg-slate-950 relative overflow-hidden flex items-center justify-center border-b border-slate-800/50">
+        {bike.specs?.imageUrl ? (
+          <img 
+            src={bike.specs.imageUrl} 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
+            alt={bike.name} 
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <i className={`fa-solid ${getIcon()} text-5xl text-slate-800`}></i>
+            <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nessuna Foto</span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
+        <div className="absolute bottom-4 left-6">
+          <span className="bg-blue-600/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full border border-blue-600/30 backdrop-blur-md uppercase tracking-tighter">
+            {bike.type}
+          </span>
+        </div>
+      </div>
+
+      <div className="p-8">
         <div className="flex justify-between items-start mb-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-800 p-3 rounded-xl group-hover:bg-blue-600/20 transition-colors">
-              <i className={`fa-solid ${getIcon()} text-xl text-blue-400`}></i>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">{bike.name}</h3>
-              <div className="flex gap-2 items-center">
-                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{bike.type}</span>
-                {bike.specs && (
-                   <button 
-                    onClick={() => setShowSpecs(true)}
-                    className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold hover:bg-blue-500/20"
-                   >
-                     SCHEDA TECNICA
-                   </button>
-                )}
-              </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-2xl font-black text-white truncate pr-2">{bike.name}</h3>
+            <div className="flex gap-4 items-center mt-1">
+              <button 
+                onClick={() => setShowSpecs(true)}
+                className="text-[10px] font-black text-blue-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-1 transition-colors"
+              >
+                <i className="fa-solid fa-circle-info"></i>
+                Scheda Tecnica
+              </button>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             <button 
-              onClick={() => onUpdateKm(bike)}
-              title="Sincronizza KM"
-              className="text-slate-400 hover:text-white bg-slate-800 p-2 rounded-lg transition-colors"
+              onClick={() => onEdit(bike)}
+              className="text-slate-500 hover:text-blue-400 h-10 w-10 flex items-center justify-center bg-slate-800 rounded-full transition-all border border-slate-700"
+              title="Modifica Bici"
             >
-              <i className="fa-solid fa-arrows-rotate"></i>
+              <i className="fa-solid fa-pen-to-square"></i>
             </button>
             <button 
               onClick={() => onDelete(bike)}
-              title="Elimina Bici"
-              className="text-slate-500 hover:text-red-400 bg-slate-800 p-2 rounded-lg transition-colors"
+              className="text-slate-500 hover:text-red-400 h-10 w-10 flex items-center justify-center bg-slate-800 rounded-full transition-all border border-slate-700"
+              title="Elimina"
             >
-              <i className="fa-solid fa-trash-can"></i>
+              <i className="fa-solid fa-trash"></i>
             </button>
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-slate-400">Chilometraggio Totale</span>
-            <span className="font-mono text-white font-bold">{bike.total_km.toFixed(1)} km</span>
-          </div>
-          <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-             <div className="h-full bg-blue-500 w-full opacity-50"></div>
+        <div className="mb-8 p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50">
+          <div className="flex justify-between items-end mb-3">
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Distanza Totale</p>
+              <p className="text-3xl font-black text-white leading-none tracking-tight">
+                {bike.total_km.toLocaleString('it-IT')} <span className="text-sm font-bold text-slate-500">km</span>
+              </p>
+            </div>
+            <button 
+              onClick={() => onUpdateKm(bike)}
+              className="h-10 w-10 bg-blue-600 rounded-full text-white hover:bg-blue-500 shadow-lg shadow-blue-900/20 transition-all active:scale-90"
+            >
+              <i className="fa-solid fa-rotate"></i>
+            </button>
           </div>
         </div>
 
-        <div className="space-y-4 mb-6">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Stato Componenti</h4>
-          {maintenance.map(item => {
+        <div className="space-y-4 mb-8">
+          <div className="flex justify-between items-center mb-1">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Manutenzione Componenti</h4>
+            <button 
+              onClick={() => setShowMaintManager(true)}
+              className="text-[9px] font-black text-blue-500 hover:text-blue-400 uppercase tracking-widest bg-blue-600/10 px-2 py-1 rounded-lg border border-blue-600/20"
+            >
+              Gestisci
+            </button>
+          </div>
+          
+          {maintenance.length > 0 ? maintenance.slice(0, 3).map(item => {
             const kmSinceInstall = bike.total_km - item.km_at_install;
             const wearPercentage = Math.min(Math.round((kmSinceInstall / item.lifespan_limit) * 100), 100);
             const isCritical = wearPercentage > 85;
             
             return (
-              <div key={item.id}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-300 font-medium">{item.component_name}</span>
-                  <span className={`${isCritical ? 'text-red-400' : 'text-slate-400'}`}>{wearPercentage}%</span>
+              <div key={item.id} className="group/item">
+                <div className="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-tight">
+                  <span className="text-slate-300">{item.component_name}</span>
+                  <span className={`${isCritical ? 'text-red-400' : 'text-blue-400'}`}>{wearPercentage}%</span>
                 </div>
-                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
                   <div 
-                    className={`h-full rounded-full transition-all duration-500 ${isCritical ? 'bg-red-500' : 'bg-green-500'}`} 
+                    className={`h-full rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(59,130,246,0.3)] ${isCritical ? 'bg-gradient-to-r from-red-600 to-orange-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`} 
                     style={{ width: `${wearPercentage}%` }}
                   ></div>
                 </div>
               </div>
             );
-          })}
+          }) : (
+            <p className="text-xs text-slate-600 font-bold italic">Nessun componente tracciato</p>
+          )}
+          {maintenance.length > 3 && (
+            <p className="text-[9px] text-slate-500 font-bold uppercase text-center">+ altri {maintenance.length - 3} componenti</p>
+          )}
         </div>
 
         <button 
           onClick={() => onAnalyze(bike)}
-          className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+          className="w-full bg-slate-800 hover:bg-blue-600 text-white font-black py-5 rounded-3xl flex items-center justify-center gap-3 transition-all group-hover:shadow-lg group-hover:shadow-blue-900/10"
         >
-          <i className="fa-solid fa-camera-retro"></i>
-          AI Vision Analysis
+          <i className="fa-solid fa-wand-magic-sparkles text-blue-400 group-hover:text-white transition-colors"></i>
+          Check-up AI Vision
         </button>
       </div>
 
       {showSpecs && bike.specs && (
-        <BikeSpecsModal specs={bike.specs} onClose={() => setShowSpecs(false)} />
+        <BikeSpecsModal 
+          specs={bike.specs} 
+          productUrl={bike.product_url}
+          onClose={() => setShowSpecs(false)} 
+        />
+      )}
+
+      {showMaintManager && (
+        <MaintenanceManager 
+          bike={bike}
+          records={maintenance}
+          onUpdate={onRefresh}
+          onClose={() => setShowMaintManager(false)}
+        />
       )}
     </div>
   );
