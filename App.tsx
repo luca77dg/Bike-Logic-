@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { BikeCard } from './components/BikeCard.tsx';
 import { AIVision } from './components/AIVision.tsx';
 import { supabaseService } from './services/supabase.ts';
-import { testAiConnection, extractBikeData } from './services/gemini.ts';
+import { extractBikeData } from './services/gemini.ts';
 import { Bike, MaintenanceRecord, BikeType } from './types.ts';
 
+// Added missing React import to fix 'Cannot find namespace React' errors on lines 10 and 34
 const App: React.FC = () => {
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [maintenance, setMaintenance] = useState<Record<string, MaintenanceRecord[]>>({});
@@ -35,35 +35,40 @@ const App: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
     const formData = new FormData(e.currentTarget);
-    const query = formData.get('query') as string;
-    const manualName = formData.get('name') as string;
+    const query = (formData.get('query') as string).trim();
+    const manualKm = parseFloat(formData.get('km') as string) || 0;
     
-    let aiResult = null;
-    if (query && query.trim().length > 2) {
-      setIsExtracting(true);
-      try {
-        aiResult = await extractBikeData(query, setExtractionStatus);
-        if (!aiResult) setErrorMessage("L'AI non è riuscita a trovare i dettagli, creerò una scheda base.");
-      } catch (err: any) {
-        setErrorMessage(`Errore durante la ricerca: ${err.message}`);
-      } finally {
-        setIsExtracting(false);
-      }
+    if (!query) {
+      setErrorMessage("Per favore, inserisci almeno il nome del modello.");
+      return;
     }
 
-    const newBike: Bike = {
-      id: crypto.randomUUID(),
-      user_id: 'user',
-      name: aiResult?.extractedName || manualName || query || "Nuova Bici",
-      type: (aiResult?.extractedType as BikeType) || (formData.get('type') as BikeType),
-      strava_gear_id: null,
-      total_km: parseFloat(formData.get('km') as string) || 0,
-      specs: aiResult?.specs
-    };
-    
-    await supabaseService.saveBike(newBike);
-    if (!errorMessage) setShowAddForm(false);
-    fetchData();
+    setIsExtracting(true);
+    setExtractionStatus("Inizializzazione AI...");
+
+    try {
+      const aiResult = await extractBikeData(query, setExtractionStatus);
+      
+      const newBike: Bike = {
+        id: crypto.randomUUID(),
+        user_id: 'user',
+        name: aiResult?.extractedName || query,
+        type: (aiResult?.extractedType as BikeType) || (formData.get('type') as BikeType),
+        strava_gear_id: null,
+        total_km: manualKm,
+        specs: aiResult?.specs
+      };
+      
+      await supabaseService.saveBike(newBike);
+      setShowAddForm(false);
+      fetchData();
+    } catch (err: any) {
+      console.error("Errore aggiunta bici:", err);
+      setErrorMessage(err.message || "Impossibile completare la ricerca. Riprova con un nome più semplice.");
+    } finally {
+      setIsExtracting(false);
+      setExtractionStatus(null);
+    }
   };
 
   return (
@@ -111,7 +116,7 @@ const App: React.FC = () => {
 
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+          <div className="bg-slate-900 border border-slate-800 w-full max-xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="p-10 border-b border-slate-800 flex justify-between items-center">
               <div>
                 <h2 className="text-3xl font-bold text-white tracking-tight">Crea Scheda AI</h2>
@@ -124,7 +129,7 @@ const App: React.FC = () => {
             
             <form onSubmit={handleAddBike} className="p-10 space-y-8">
               {errorMessage && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-medium flex gap-3 items-center">
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-medium flex gap-3 items-center animate-pulse">
                   <i className="fa-solid fa-circle-exclamation text-lg"></i>
                   {errorMessage}
                 </div>
@@ -135,32 +140,35 @@ const App: React.FC = () => {
                   <label className="block text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-3">Assistente di Ricerca AI</label>
                   <input 
                     name="query" 
-                    required={!bikes.length}
+                    autoFocus
+                    required
                     className="w-full bg-slate-800/50 border border-slate-700 rounded-2xl px-5 py-4 text-white placeholder-slate-600 outline-none focus:ring-4 ring-blue-600/20 transition-all text-lg" 
-                    placeholder="Esempio: Specialized Epic 2024" 
+                    placeholder="Esempio: Specialized Epic Expert 2023" 
                   />
                   {isExtracting && (
-                    <div className="absolute right-10 top-1/2 -translate-y-1/2 flex items-center gap-3 text-blue-400 text-xs font-bold bg-slate-900 py-2 px-4 rounded-full border border-blue-600/30">
+                    <div className="mt-4 flex items-center gap-3 text-blue-400 text-xs font-bold bg-blue-900/20 py-3 px-5 rounded-2xl border border-blue-600/30">
                        <i className="fa-solid fa-spinner fa-spin"></i>
                        {extractionStatus}
                     </div>
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Categoria</label>
-                    <select name="type" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-blue-500 transition-colors">
-                      <option value="MTB">Mountain Bike</option>
-                      <option value="Corsa">Bici da Corsa</option>
-                      <option value="Gravel">Gravel Bike</option>
-                    </select>
+                {!isExtracting && (
+                  <div className="grid grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Km Percorsi Attuali</label>
+                      <input type="number" name="km" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-blue-500 transition-colors" placeholder="0.0" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Fallback Categoria</label>
+                      <select name="type" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-blue-500 transition-colors">
+                        <option value="MTB">Mountain Bike</option>
+                        <option value="Corsa">Bici da Corsa</option>
+                        <option value="Gravel">Gravel Bike</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Km Percorsi</label>
-                    <input type="number" name="km" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-blue-500 transition-colors" placeholder="0.0" />
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="pt-4 flex flex-col gap-4">
@@ -170,17 +178,19 @@ const App: React.FC = () => {
                   className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-blue-900/40 flex items-center justify-center gap-4 transition-all text-xl active:scale-95"
                 >
                   {isExtracting ? (
-                    'Sincronizzazione in corso...'
+                    'AI sta lavorando per te...'
                   ) : (
                     <>
                       <i className="fa-solid fa-wand-magic-sparkles"></i>
-                      Salva ed Esplora
+                      Ricerca e Aggiungi
                     </>
                   )}
                 </button>
-                <button type="button" onClick={() => setShowAddForm(false)} className="text-slate-500 font-bold hover:text-slate-300 transition-colors text-sm">
-                   Inserisci più tardi
-                </button>
+                {!isExtracting && (
+                  <button type="button" onClick={() => setShowAddForm(false)} className="text-slate-500 font-bold hover:text-slate-300 transition-colors text-sm">
+                    Annulla
+                  </button>
+                )}
               </div>
             </form>
           </div>
