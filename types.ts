@@ -14,8 +14,10 @@ export interface BikeSpecs {
   freni?: string;
   ruote?: string;
   pneumatici?: string;
+  clearance_max?: string;
   sella?: string;
   peso?: string;
+  imageUrl?: string;
   sources?: BikeSource[];
 }
 

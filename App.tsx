@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { BikeCard } from './components/BikeCard.tsx';
@@ -6,7 +7,6 @@ import { supabaseService } from './services/supabase.ts';
 import { extractBikeData } from './services/gemini.ts';
 import { Bike, MaintenanceRecord, BikeType } from './types.ts';
 
-// Added missing React import to fix 'Cannot find namespace React' errors on lines 10 and 34
 const App: React.FC = () => {
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [maintenance, setMaintenance] = useState<Record<string, MaintenanceRecord[]>>({});
@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionStatus, setExtractionStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasApiKey, setHasApiKey] = useState<boolean>(!!process.env.API_KEY);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -29,11 +30,38 @@ const App: React.FC = () => {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { 
+    fetchData();
+    // Verifica persistente della chiave
+    const checkKey = setInterval(() => {
+      setHasApiKey(!!process.env.API_KEY);
+    }, 2000);
+    return () => clearInterval(checkKey);
+  }, [fetchData]);
+
+  const handleOpenKeySelector = async () => {
+    try {
+      // @ts-ignore
+      if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+        // @ts-ignore
+        await window.aistudio.openSelectKey();
+        setHasApiKey(true);
+      } else {
+        alert("Per configurare la chiave API su Vercel, aggiungi la variabile d'ambiente API_KEY nelle impostazioni del progetto.");
+      }
+    } catch (e) {
+      console.error("Errore apertura selettore chiave:", e);
+    }
+  };
 
   const handleAddBike = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage(null);
+    if (!hasApiKey) {
+      setErrorMessage("Configurazione mancante: Collega la tua API Key prima di continuare.");
+      return;
+    }
+
     const formData = new FormData(e.currentTarget);
     const query = (formData.get('query') as string).trim();
     const manualKm = parseFloat(formData.get('km') as string) || 0;
@@ -73,14 +101,32 @@ const App: React.FC = () => {
 
   return (
     <Layout>
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-extrabold text-white">Il Tuo Garage</h2>
-        <button 
-          onClick={() => { setErrorMessage(null); setShowAddForm(true); }} 
-          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-blue-900/40 active:scale-95"
-        >
-          <i className="fa-solid fa-plus mr-2"></i> Aggiungi Bici
-        </button>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h2 className="text-3xl font-extrabold text-white">Il Tuo Garage</h2>
+          {!hasApiKey && (
+            <p className="text-red-400 text-xs font-bold mt-1 flex items-center gap-2">
+              <i className="fa-solid fa-triangle-exclamation"></i>
+              API AI non configurata
+            </p>
+          )}
+        </div>
+        <div className="flex gap-3">
+          {!hasApiKey && (
+            <button 
+              onClick={handleOpenKeySelector}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-3 rounded-2xl font-bold transition-all border border-slate-700 flex items-center gap-2"
+            >
+              <i className="fa-solid fa-key"></i> Collega API
+            </button>
+          )}
+          <button 
+            onClick={() => { setErrorMessage(null); setShowAddForm(true); }} 
+            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-blue-900/40 active:scale-95 flex items-center gap-2"
+          >
+            <i className="fa-solid fa-plus"></i> Aggiungi Bici
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -116,11 +162,11 @@ const App: React.FC = () => {
 
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-          <div className="bg-slate-900 border border-slate-800 w-full max-xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="p-10 border-b border-slate-800 flex justify-between items-center">
               <div>
                 <h2 className="text-3xl font-bold text-white tracking-tight">Crea Scheda AI</h2>
-                <p className="text-slate-500 font-medium">Scrivi modello e anno per auto-compilazione</p>
+                <p className="text-slate-500 font-medium">Auto-compilazione con Gemini Search</p>
               </div>
               <button onClick={() => setShowAddForm(false)} className="bg-slate-800 h-12 w-12 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors">
                 <i className="fa-solid fa-xmark text-lg"></i>
@@ -129,21 +175,25 @@ const App: React.FC = () => {
             
             <form onSubmit={handleAddBike} className="p-10 space-y-8">
               {errorMessage && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-medium flex gap-3 items-center animate-pulse">
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-medium flex gap-3 items-center">
                   <i className="fa-solid fa-circle-exclamation text-lg"></i>
-                  {errorMessage}
+                  <span>{errorMessage}</span>
+                  {!hasApiKey && (
+                    <button type="button" onClick={handleOpenKeySelector} className="ml-auto underline font-black">COLLEGA ORA</button>
+                  )}
                 </div>
               )}
 
               <div className="space-y-6">
                 <div className="p-6 bg-blue-600/5 rounded-[2rem] border border-blue-600/10 relative">
-                  <label className="block text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-3">Assistente di Ricerca AI</label>
+                  <label className="block text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-3">Modello e Anno</label>
                   <input 
                     name="query" 
                     autoFocus
                     required
-                    className="w-full bg-slate-800/50 border border-slate-700 rounded-2xl px-5 py-4 text-white placeholder-slate-600 outline-none focus:ring-4 ring-blue-600/20 transition-all text-lg" 
-                    placeholder="Esempio: Specialized Epic Expert 2023" 
+                    disabled={!hasApiKey}
+                    className="w-full bg-slate-800/50 border border-slate-700 rounded-2xl px-5 py-4 text-white placeholder-slate-600 outline-none focus:ring-4 ring-blue-600/20 transition-all text-lg disabled:opacity-50" 
+                    placeholder="Esempio: Trek Emonda SL6 2022" 
                   />
                   {isExtracting && (
                     <div className="mt-4 flex items-center gap-3 text-blue-400 text-xs font-bold bg-blue-900/20 py-3 px-5 rounded-2xl border border-blue-600/30">
@@ -154,14 +204,14 @@ const App: React.FC = () => {
                 </div>
 
                 {!isExtracting && (
-                  <div className="grid grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2">
+                  <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Km Percorsi Attuali</label>
-                      <input type="number" name="km" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-blue-500 transition-colors" placeholder="0.0" />
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Km Percorsi</label>
+                      <input type="number" name="km" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-blue-500" placeholder="0.0" />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Fallback Categoria</label>
-                      <select name="type" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-blue-500 transition-colors">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Categoria</label>
+                      <select name="type" className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-blue-500">
                         <option value="MTB">Mountain Bike</option>
                         <option value="Corsa">Bici da Corsa</option>
                         <option value="Gravel">Gravel Bike</option>
@@ -171,24 +221,30 @@ const App: React.FC = () => {
                 )}
               </div>
 
-              <div className="pt-4 flex flex-col gap-4">
-                <button 
-                  type="submit" 
-                  disabled={isExtracting} 
-                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-blue-900/40 flex items-center justify-center gap-4 transition-all text-xl active:scale-95"
-                >
-                  {isExtracting ? (
-                    'AI sta lavorando per te...'
-                  ) : (
-                    <>
-                      <i className="fa-solid fa-wand-magic-sparkles"></i>
-                      Ricerca e Aggiungi
-                    </>
-                  )}
-                </button>
-                {!isExtracting && (
-                  <button type="button" onClick={() => setShowAddForm(false)} className="text-slate-500 font-bold hover:text-slate-300 transition-colors text-sm">
-                    Annulla
+              <div className="pt-4">
+                {!hasApiKey ? (
+                  <button 
+                    type="button"
+                    onClick={handleOpenKeySelector}
+                    className="w-full bg-slate-800 text-slate-400 font-black py-5 rounded-[2rem] border-2 border-dashed border-slate-700 flex items-center justify-center gap-4 transition-all"
+                  >
+                    <i className="fa-solid fa-lock"></i>
+                    Configura API per Sbloccare
+                  </button>
+                ) : (
+                  <button 
+                    type="submit" 
+                    disabled={isExtracting} 
+                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-blue-900/40 flex items-center justify-center gap-4 transition-all text-xl active:scale-95"
+                  >
+                    {isExtracting ? (
+                      'AI sta lavorando...'
+                    ) : (
+                      <>
+                        <i className="fa-solid fa-wand-magic-sparkles"></i>
+                        Ricerca AI
+                      </>
+                    )}
                   </button>
                 )}
               </div>
