@@ -4,7 +4,7 @@ import { Layout } from './components/Layout.tsx';
 import { BikeCard } from './components/BikeCard.tsx';
 import { AIVision } from './components/AIVision.tsx';
 import { supabaseService } from './services/supabase.ts';
-import { testAiConnection, extractSpecsFromUrl } from './services/gemini.ts';
+import { testAiConnection, extractBikeData } from './services/gemini.ts';
 import { Bike, MaintenanceRecord, BikeType } from './types.ts';
 
 const App: React.FC = () => {
@@ -40,15 +40,20 @@ const App: React.FC = () => {
   const handleAddBike = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const url = formData.get('url') as string;
+    const query = formData.get('query') as string;
+    const manualName = formData.get('name') as string;
     
-    setIsExtracting(true);
-    let aiResult = url ? await extractSpecsFromUrl(url, setExtractionStatus) : null;
+    let aiResult = null;
+    if (query && query.trim().length > 3) {
+      setIsExtracting(true);
+      aiResult = await extractBikeData(query, setExtractionStatus);
+      setIsExtracting(false);
+    }
 
     const newBike: Bike = {
       id: crypto.randomUUID(),
       user_id: 'user',
-      name: aiResult?.extractedName || (formData.get('name') as string) || "Nuova Bici",
+      name: aiResult?.extractedName || manualName || query || "Nuova Bici",
       type: (aiResult?.extractedType as BikeType) || (formData.get('type') as BikeType),
       strava_gear_id: null,
       total_km: parseFloat(formData.get('km') as string) || 0,
@@ -56,72 +61,114 @@ const App: React.FC = () => {
     };
     
     await supabaseService.saveBike(newBike);
-    setIsExtracting(false);
     setShowAddForm(false);
+    setTestResult(null);
     fetchData();
   };
 
   return (
     <Layout>
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-extrabold text-white">Le Tue Bici</h2>
-        <button onClick={() => { setTestResult(null); setShowAddForm(true); }} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg">
-          <i className="fa-solid fa-plus mr-2"></i> Nuova Bici
+        <h2 className="text-3xl font-extrabold text-white">Il Tuo Garage</h2>
+        <button 
+          onClick={() => setShowAddForm(true)} 
+          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg active:scale-95"
+        >
+          <i className="fa-solid fa-plus mr-2"></i> Aggiungi Bici
         </button>
       </div>
 
       {loading ? (
-        <div className="py-20 text-center animate-pulse text-slate-500">Caricamento garage...</div>
+        <div className="py-20 text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-slate-500 font-medium">Sincronizzazione garage...</p>
+        </div>
+      ) : bikes.length === 0 ? (
+        <div className="text-center py-20 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
+           <i className="fa-solid fa-bicycle text-5xl text-slate-800 mb-4 block"></i>
+           <p className="text-slate-500">Il garage è vuoto. Aggiungi la tua prima bici!</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {bikes.map(bike => (
-            <BikeCard key={bike.id} bike={bike} maintenance={maintenance[bike.id] || []} onAnalyze={setActiveAnalysis} onUpdateKm={() => {}} onDelete={() => {}} />
+            <BikeCard 
+              key={bike.id} 
+              bike={bike} 
+              maintenance={maintenance[bike.id] || []} 
+              onAnalyze={setActiveAnalysis} 
+              onUpdateKm={() => {}} 
+              onDelete={async (b) => {
+                if(confirm('Eliminare questa bici?')) {
+                  await supabaseService.deleteBike(b.id);
+                  fetchData();
+                }
+              }} 
+            />
           ))}
         </div>
       )}
 
       {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Aggiungi Bici</h2>
-              <button onClick={() => setShowAddForm(false)} className="text-slate-500 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            <form onSubmit={handleAddBike} className="p-6 space-y-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Diagnostica API</label>
-                <button type="button" onClick={handleTestKey} className="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 py-2 rounded-lg font-bold border border-slate-700 transition-colors">
-                  <i className="fa-solid fa-vial mr-2"></i> Verifica Chiave su Vercel
-                </button>
-                {testResult && (
-                  <div className={`text-[10px] p-2 rounded-lg border ${testResult.success ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                    {testResult.message}
-                  </div>
-                )}
-              </div>
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-200">
+            <div className="p-8 border-b border-slate-800 flex justify-between items-center">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">URL Scheda Tecnica (AI)</label>
-                <input name="url" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500" placeholder="https://www.trekbikes.com/..." />
+                <h2 className="text-2xl font-bold text-white">Nuova Bici</h2>
+                <p className="text-slate-500 text-sm">L'AI troverà le specifiche per te</p>
               </div>
+              <button onClick={() => setShowAddForm(false)} className="bg-slate-800 h-10 w-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <form onSubmit={handleAddBike} className="p-8 space-y-6">
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-600/5 rounded-2xl border border-blue-600/10">
+                  <label className="block text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-2">Ricerca Magica AI</label>
+                  <input 
+                    name="query" 
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 outline-none focus:ring-2 ring-blue-600/50" 
+                    placeholder="Esempio: Trek X-Caliber 8 2023 oppure incolla link" 
+                  />
+                  <p className="mt-2 text-[10px] text-slate-500 italic">Inserisci modello e anno per i migliori risultati.</p>
+                </div>
 
-              <div className="space-y-4 pt-4 border-t border-slate-800">
-                <input name="name" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="Nome Modello (opzionale)" />
                 <div className="grid grid-cols-2 gap-4">
-                  <select name="type" className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none">
-                    <option value="Corsa">Corsa</option>
-                    <option value="Gravel">Gravel</option>
-                    <option value="MTB">MTB</option>
-                  </select>
-                  <input type="number" name="km" className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="KM Iniziali" />
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tipo</label>
+                    <select name="type" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none">
+                      <option value="MTB">MTB</option>
+                      <option value="Corsa">Corsa</option>
+                      <option value="Gravel">Gravel</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Km Totali</label>
+                    <input type="number" name="km" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="0" />
+                  </div>
                 </div>
               </div>
-              
-              <button type="submit" disabled={isExtracting} className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold py-4 rounded-xl mt-4 flex items-center justify-center gap-3">
-                {isExtracting ? (
-                  <><i className="fa-solid fa-spinner fa-spin"></i> {extractionStatus || 'Elaborazione...'}</>
-                ) : 'Salva Bici'}
-              </button>
+
+              <div className="pt-4 flex flex-col gap-3">
+                <button 
+                  type="submit" 
+                  disabled={isExtracting} 
+                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-900/40 flex items-center justify-center gap-3 transition-all"
+                >
+                  {isExtracting ? (
+                    <><i className="fa-solid fa-spinner fa-spin"></i> {extractionStatus || 'Ricerca in corso...'}</>
+                  ) : 'Aggiungi al Garage'}
+                </button>
+
+                <div className="flex flex-col gap-2 mt-4 border-t border-slate-800 pt-4">
+                   <button type="button" onClick={handleTestKey} className="text-[10px] font-bold text-slate-500 hover:text-blue-400 flex items-center gap-2 justify-center">
+                      <i className="fa-solid fa-shield-heart"></i> Verifica Stato API Gemini
+                   </button>
+                   {testResult && (
+                     <p className={`text-[10px] text-center p-2 rounded-lg ${testResult.success ? 'text-green-400 bg-green-400/5' : 'text-red-400 bg-red-400/5'}`}>
+                        {testResult.message}
+                     </p>
+                   )}
+                </div>
+              </div>
             </form>
           </div>
         </div>
