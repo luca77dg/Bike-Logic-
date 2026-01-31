@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
   const [isCloudEnabled, setIsCloudEnabled] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Strava States
   const [stravaAthlete, setStravaAthlete] = useState<any>(null);
@@ -40,22 +41,59 @@ const App: React.FC = () => {
         maintData[b.id] = await supabaseService.getMaintenance(b.id);
       }
       setMaintenance(maintData);
+      return bikeData;
     } catch (err) {
       console.error("Fetch error:", err);
+      return [];
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const checkStatus = useCallback(async () => {
+  const syncBikesWithStrava = useCallback(async (currentBikes: Bike[], athlete: any) => {
+    if (!athlete || !athlete.bikes) return;
+    
+    let hasChanged = false;
+    const updatedBikes = [...currentBikes];
+
+    for (let i = 0; i < updatedBikes.length; i++) {
+      const bike = updatedBikes[i];
+      if (bike.strava_gear_id) {
+        const stravaBike = athlete.bikes.find((sb: any) => sb.id === bike.strava_gear_id);
+        if (stravaBike) {
+          const stravaKm = Math.round(stravaBike.distance / 1000);
+          if (stravaKm !== bike.total_km) {
+            updatedBikes[i] = { ...bike, total_km: stravaKm };
+            await supabaseService.saveBike(updatedBikes[i]);
+            hasChanged = true;
+          }
+        }
+      }
+    }
+
+    if (hasChanged) {
+      setBikes(updatedBikes);
+      console.log("BikeLogic: Chilometri aggiornati automaticamente da Strava.");
+    }
+  }, []);
+
+  const checkStatus = useCallback(async (shouldSync = false) => {
     setIsCloudEnabled(supabaseService.isConfigured());
     setIsStravaConfigured(stravaService.isConfigured());
     
-    // Check Strava Auth
     const token = await stravaService.getValidToken();
-    if (token && !stravaAthlete) {
+    if (token) {
       const data = await stravaService.getAthleteData();
-      setStravaAthlete(data);
+      if (data) {
+        setStravaAthlete(data);
+        if (shouldSync) {
+          setIsSyncing(true);
+          // Usiamo le bici correnti dallo stato o caricate
+          const currentBikes = await supabaseService.getBikes();
+          await syncBikesWithStrava(currentBikes, data);
+          setIsSyncing(false);
+        }
+      }
     }
 
     const envKey = process.env.API_KEY;
@@ -69,22 +107,29 @@ const App: React.FC = () => {
     } else {
       setHasApiKey(isEnvKeyValid);
     }
-  }, [stravaAthlete]);
+  }, [syncBikesWithStrava]);
 
   useEffect(() => {
-    // Handle Strava OAuth Redirect
+    const init = async () => {
+      const initialBikes = await fetchData();
+      // Al primo avvio, forziamo un check dei km
+      await checkStatus(true);
+    };
+
+    // Gestione OAuth redirect
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code) {
       window.history.replaceState({}, document.title, window.location.pathname);
       stravaService.exchangeToken(code).then(() => {
-        checkStatus();
+        init();
       });
+    } else {
+      init();
     }
 
-    fetchData();
-    checkStatus();
-    const interval = setInterval(checkStatus, 5000);
+    // Check periodico ogni 5 minuti (300000ms) per nuovi km se l'app resta aperta
+    const interval = setInterval(() => checkStatus(true), 300000);
     return () => clearInterval(interval);
   }, [fetchData, checkStatus]);
 
@@ -186,6 +231,7 @@ const App: React.FC = () => {
 
   const handleStravaSync = async (bike: Bike) => {
     if (!bike.strava_gear_id) return;
+    setIsSyncing(true);
     try {
       const gear = await stravaService.getGearDetails(bike.strava_gear_id);
       if (gear && gear.distance) {
@@ -193,10 +239,11 @@ const App: React.FC = () => {
         const updated = { ...bike, total_km: km };
         await supabaseService.saveBike(updated);
         fetchData();
-        alert(`Sincronizzati ${km} km da Strava per ${bike.name}`);
       }
     } catch (err) {
       alert("Errore durante la sincronizzazione Strava");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -220,9 +267,12 @@ const App: React.FC = () => {
             
             {isStravaConfigured && (
               stravaAthlete ? (
-                <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full relative overflow-hidden">
                   <i className="fa-brands fa-strava text-[10px] text-orange-500"></i>
-                  <span className="text-[10px] font-bold text-orange-400 uppercase tracking-tighter">{stravaAthlete.firstname} Linked</span>
+                  <span className="text-[10px] font-bold text-orange-400 uppercase tracking-tighter">
+                    {stravaAthlete.firstname} {isSyncing ? '• Syncing...' : 'Linked'}
+                  </span>
+                  {isSyncing && <div className="absolute inset-0 bg-orange-500/5 animate-pulse"></div>}
                 </div>
               ) : (
                 <button 
@@ -285,7 +335,7 @@ const App: React.FC = () => {
           <div className="bg-[#0f1421] border border-slate-800 w-full max-w-xl rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in zoom-in duration-300 my-8">
             <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-[#13192a]">
               <h2 className="text-2xl font-black text-white">{editingBike ? 'Modifica Bici' : 'Nuova Bici'}</h2>
-              <button onClick={() => setShowForm(false)} className="bg-slate-800/50 h-10 w-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700">
+              <button onClick={() => setShowForm(false)} className="bg-slate-800/50 h-10 w-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-all border border-slate-700">
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
@@ -331,9 +381,9 @@ const App: React.FC = () => {
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Categoria</label>
                     <select name="type" defaultValue={editingBike?.type || 'MTB'} className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-blue-600/50 transition-all appearance-none">
-                      <option value="MTB">MTB</option>
-                      <option value="Corsa">Corsa</option>
-                      <option value="Gravel">Gravel</option>
+                      <option value="MTB" className="bg-[#161c2d] text-white">MTB</option>
+                      <option value="Corsa" className="bg-[#161c2d] text-white">Corsa</option>
+                      <option value="Gravel" className="bg-[#161c2d] text-white">Gravel</option>
                     </select>
                   </div>
                 </div>
@@ -342,10 +392,20 @@ const App: React.FC = () => {
                 {stravaAthlete && stravaAthlete.bikes && stravaAthlete.bikes.length > 0 && (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Collega a Strava</label>
-                    <select name="strava_id" defaultValue={editingBike?.strava_gear_id || ''} className="w-full bg-orange-500/5 border border-orange-500/20 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-orange-500/50 transition-all appearance-none">
-                      <option value="">-- Non collegata --</option>
+                    <select 
+                      name="strava_id" 
+                      defaultValue={editingBike?.strava_gear_id || ''} 
+                      className="w-full bg-[#1e2538] border border-orange-500/40 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-orange-500/50 transition-all appearance-none font-bold"
+                    >
+                      <option value="" className="bg-[#13192a] text-slate-400">-- Non collegata --</option>
                       {stravaAthlete.bikes.map((b: any) => (
-                        <option key={b.id} value={b.id}>{b.name} ({Math.round(b.distance/1000)} km)</option>
+                        <option 
+                          key={b.id} 
+                          value={b.id} 
+                          className="bg-[#13192a] text-white"
+                        >
+                          {b.name} ({Math.round(b.distance/1000)} km)
+                        </option>
                       ))}
                     </select>
                   </div>
