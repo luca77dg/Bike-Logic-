@@ -23,7 +23,6 @@ const App: React.FC = () => {
   
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkStatus = useCallback(async () => {
     setIsCloudEnabled(supabaseService.isConfigured());
@@ -61,7 +60,7 @@ const App: React.FC = () => {
   useEffect(() => { 
     fetchData();
     checkStatus();
-    const interval = setInterval(checkStatus, 3000);
+    const interval = setInterval(checkStatus, 5000);
     return () => clearInterval(interval);
   }, [fetchData, checkStatus]);
 
@@ -89,7 +88,7 @@ const App: React.FC = () => {
         
         const newBike: Bike = {
           id: crypto.randomUUID(),
-          user_id: '', // Gestito dal service
+          user_id: '', 
           name: aiResult?.extractedName || query,
           type: (aiResult?.extractedType as BikeType) || (formData.get('type') as BikeType),
           strava_gear_id: null,
@@ -141,22 +140,22 @@ const App: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
         <div>
           <h2 className="text-3xl font-black text-white">Il Tuo Garage</h2>
-          <div className="flex gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-2">
             {isCloudEnabled ? (
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full">
                 <span className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
                 <span className="text-[10px] font-bold text-blue-400 uppercase tracking-tighter">Sincronizzazione Cloud Attiva</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
-                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-tighter">Modalità Locale (No Sincro)</span>
+              <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">Errore Sync: Controlla VITE_ Prefissi</span>
               </div>
             )}
             {hasApiKey && (
               <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
                 <i className="fa-solid fa-brain text-[10px] text-emerald-500"></i>
-                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">AI Online</span>
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">AI Ready</span>
               </div>
             )}
           </div>
@@ -201,7 +200,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Il resto del JSX del form rimane identico */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl overflow-y-auto">
           <div className="bg-[#0f1421] border border-slate-800 w-full max-w-xl rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in zoom-in duration-300 my-8">

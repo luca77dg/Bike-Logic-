@@ -2,35 +2,34 @@
 import { createClient } from '@supabase/supabase-js';
 import { Bike, MaintenanceRecord } from '../types.ts';
 
-// Vercel/Vite/Browser environment detection
-// Cerchiamo le variabili in tutti i posti possibili dove Vercel o il bundler potrebbero metterle
+// Tenta di recuperare le chiavi con o senza prefisso VITE_ (richiesto da Vite/Vercel)
 const supabaseUrl = (
+  (import.meta as any).env?.VITE_SUPABASE_URL || 
+  process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL || 
-  (window as any).process?.env?.SUPABASE_URL ||
   ''
 ).trim();
 
 const supabaseAnonKey = (
+  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 
+  process.env.VITE_SUPABASE_ANON_KEY ||
   process.env.SUPABASE_ANON_KEY || 
-  (window as any).process?.env?.SUPABASE_ANON_KEY ||
   ''
 ).trim();
 
-// DEBUG LOG (Visibile nella console del browser F12)
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("BIKELOGIC DEBUG: Variabili Supabase mancanti!", { 
-    urlFound: !!supabaseUrl, 
-    keyFound: !!supabaseAnonKey 
-  });
-} else {
-  console.log("BIKELOGIC DEBUG: Connessione Cloud inizializzata correttamente.");
-}
-
 const SHARED_USER_ID = 'bikelogic_global_user';
 
-export const supabase = (supabaseUrl && supabaseAnonKey && supabaseUrl !== 'undefined') 
+// Inizializzazione client
+export const supabase = (supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http')) 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+// Debug in console per aiutarti a capire cosa vede Vercel
+console.log("BikeLogic Supabase Init:", {
+  urlDetected: !!supabaseUrl,
+  keyDetected: !!supabaseAnonKey,
+  clientActive: !!supabase
+});
 
 export const supabaseService = {
   isConfigured: () => !!supabase,
@@ -49,10 +48,12 @@ export const supabaseService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      // Sync locale per backup
+      if (data) localStorage.setItem('bikelogic_bikes', JSON.stringify(data));
       return data || [];
     } catch (err: any) {
-      console.error("Errore fetch bikes cloud:", err.message);
-      // Fallback su local se il cloud fallisce
+      console.error("Cloud Fetch Error:", err.message);
       const local = localStorage.getItem('bikelogic_bikes');
       return local ? JSON.parse(local) : [];
     }
@@ -64,21 +65,21 @@ export const supabaseService = {
       user_id: SHARED_USER_ID
     };
 
-    if (!supabase) {
-      const bikes = await supabaseService.getBikes();
-      const index = bikes.findIndex(b => b.id === bike.id);
-      if (index > -1) bikes[index] = bikeToSave; else bikes.push(bikeToSave);
-      localStorage.setItem('bikelogic_bikes', JSON.stringify(bikes));
-      return;
-    }
+    // Salvataggio sempre in locale per reattività
+    const currentLocal = await supabaseService.getBikes();
+    const newLocal = [...currentLocal.filter(b => b.id !== bike.id), bikeToSave];
+    localStorage.setItem('bikelogic_bikes', JSON.stringify(newLocal));
 
-    const { error } = await supabase
-      .from('bikes')
-      .upsert(bikeToSave, { onConflict: 'id' });
+    if (!supabase) return;
 
-    if (error) {
-      console.error("Errore salvataggio cloud:", error.message);
-      throw error;
+    try {
+      const { error } = await supabase
+        .from('bikes')
+        .upsert(bikeToSave, { onConflict: 'id' });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Cloud Save Error:", err.message);
+      throw err;
     }
   },
 
@@ -89,33 +90,39 @@ export const supabaseService = {
       return all.filter(m => m.bike_id === bikeId);
     }
 
-    const { data, error } = await supabase
-      .from('maintenance')
-      .select('*')
-      .eq('bike_id', bikeId);
-
-    return error ? [] : (data || []);
+    try {
+      const { data, error } = await supabase
+        .from('maintenance')
+        .select('*')
+        .eq('bike_id', bikeId);
+      if (error) throw error;
+      return data || [];
+    } catch {
+      return [];
+    }
   },
 
   saveMaintenance: async (record: MaintenanceRecord): Promise<void> => {
-    if (!supabase) {
-      const data = localStorage.getItem('bikelogic_maintenance');
-      const all: MaintenanceRecord[] = data ? JSON.parse(data) : [];
-      const index = all.findIndex(r => r.id === record.id);
-      if (index > -1) all[index] = record; else all.push(record);
-      localStorage.setItem('bikelogic_maintenance', JSON.stringify(all));
-      return;
-    }
+    // Local first
+    const data = localStorage.getItem('bikelogic_maintenance');
+    const all: MaintenanceRecord[] = data ? JSON.parse(data) : [];
+    const newAll = [...all.filter(r => r.id !== record.id), record];
+    localStorage.setItem('bikelogic_maintenance', JSON.stringify(newAll));
 
-    await supabase.from('maintenance').upsert(record);
+    if (!supabase) return;
+
+    try {
+      await supabase.from('maintenance').upsert(record, { onConflict: 'id' });
+    } catch (err: any) {
+      console.error("Maint Cloud Error:", err.message);
+    }
   },
 
   deleteBike: async (id: string): Promise<void> => {
-    if (!supabase) {
-      const bikes = await supabaseService.getBikes();
-      localStorage.setItem('bikelogic_bikes', JSON.stringify(bikes.filter(b => b.id !== id)));
-      return;
-    }
+    const bikes = await supabaseService.getBikes();
+    localStorage.setItem('bikelogic_bikes', JSON.stringify(bikes.filter(b => b.id !== id)));
+
+    if (!supabase) return;
     await supabase.from('bikes').delete().eq('id', id);
   }
 };
