@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [activeAnalysis, setActiveAnalysis] = useState<Bike | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -51,6 +52,7 @@ const App: React.FC = () => {
 
   const handleAddBike = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setExtractionError(null);
     const formData = new FormData(e.currentTarget);
     const manualName = formData.get('name') as string;
     const url = formData.get('url') as string;
@@ -60,11 +62,23 @@ const App: React.FC = () => {
     
     let aiResult = null;
     if (url) {
-      aiResult = await extractSpecsFromUrl(url);
+      try {
+        aiResult = await extractSpecsFromUrl(url);
+        if (!aiResult) {
+          setExtractionError("L'AI non è riuscita a trovare informazioni per questo link. Verranno usati i dati manuali.");
+        }
+      } catch (err) {
+        setExtractionError("Errore durante la ricerca AI. Verifica la connessione o il link.");
+      }
     }
 
-    const finalName = (aiResult?.extractedName && aiResult.extractedName !== "unknown") ? aiResult.extractedName : (manualName || "Bici senza nome");
-    const finalType = (aiResult?.extractedType && ['Corsa', 'Gravel', 'MTB'].includes(aiResult.extractedType)) ? aiResult.extractedType as BikeType : manualType;
+    const finalName = (aiResult?.extractedName && aiResult.extractedName !== "unknown" && aiResult.extractedName !== "Nome Bici") 
+      ? aiResult.extractedName 
+      : (manualName || "Bici senza nome");
+      
+    const finalType = (aiResult?.extractedType && ['Corsa', 'Gravel', 'MTB'].includes(aiResult.extractedType)) 
+      ? aiResult.extractedType as BikeType 
+      : manualType;
 
     const newBike: Bike = {
       id: crypto.randomUUID(),
@@ -97,8 +111,11 @@ const App: React.FC = () => {
     }
 
     setIsExtracting(false);
-    setShowAddForm(false);
-    fetchData();
+    // Se non c'è stato un errore critico, chiudiamo il form
+    if (!url || aiResult) {
+      setShowAddForm(false);
+      fetchData();
+    }
   };
 
   return (
@@ -107,7 +124,7 @@ const App: React.FC = () => {
         <h2 className="text-3xl font-extrabold text-white tracking-tight">Le Tue Bici</h2>
         <div className="flex gap-3">
           <button 
-            onClick={() => setShowAddForm(true)}
+            onClick={() => { setExtractionError(null); setShowAddForm(true); }}
             className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-2xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-900/20"
           >
             <i className="fa-solid fa-plus"></i>
@@ -154,21 +171,28 @@ const App: React.FC = () => {
               )}
             </div>
             <form onSubmit={handleAddBike} className="p-6 space-y-4">
+              {extractionError && (
+                <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-start gap-3 animate-in fade-in zoom-in duration-200">
+                  <i className="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5"></i>
+                  <p className="text-xs text-amber-200 leading-tight">{extractionError}</p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Link Prodotto AI</label>
                 <div className="relative">
                   <input name="url" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors pl-10" placeholder="https://www.trekbikes.com/..." disabled={isExtracting} />
                   <i className="fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-500"></i>
                 </div>
-                <p className="text-[10px] text-blue-400 mt-1 italic font-medium">✨ Gemini cercherà le specifiche ufficiali sul web.</p>
+                <p className="text-[10px] text-blue-400 mt-1 italic font-medium">✨ Gemini cercherà le specifiche ufficiali tramite Google Search.</p>
               </div>
 
               <div className={`border-t border-slate-800 pt-4 transition-opacity duration-300 ${isExtracting ? 'opacity-30' : 'opacity-70'}`}>
-                <p className="text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-widest">O inserisci manualmente</p>
+                <p className="text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-widest">Informazioni Base</p>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Nome (Facoltativo se link presente)</label>
-                    <input name="name" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="Es. My specialized" disabled={isExtracting} />
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Nome Modello</label>
+                    <input name="name" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="Es. Trek Emonda" disabled={isExtracting} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -195,15 +219,15 @@ const App: React.FC = () => {
                 {isExtracting ? (
                   <>
                     <div className="flex items-center gap-3">
-                      <i className="fa-solid fa-wand-magic-sparkles fa-spin"></i>
-                      <span>Scansione AI in corso...</span>
+                      <i className="fa-solid fa-magnifying-glass fa-spin text-blue-200"></i>
+                      <span>Ricerca Web in corso...</span>
                     </div>
-                    <span className="text-[9px] uppercase tracking-tighter opacity-60 mt-1">Sto consultando i database tecnici sul web</span>
+                    <span className="text-[9px] uppercase tracking-tighter opacity-70 mt-1">L'AI sta consultando i siti tecnici</span>
                   </>
                 ) : (
                   <>
                     <i className="fa-solid fa-bicycle mb-1"></i>
-                    Configura Bicicletta
+                    Aggiungi Bicicletta
                   </>
                 )}
               </button>

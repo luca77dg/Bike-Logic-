@@ -1,7 +1,23 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 const PROMPT_VISION = "Analizza questa foto di una trasmissione o freno di una bicicletta. Valuta accuratamente il livello di sporco (grasso secco, fango, residui) e l'usura visibile (denti della corona consumati, maglie della catena lucide, ossidazione). Fornisci un consiglio tecnico immediato per la manutenzione. Sii professionale e sintetico in lingua italiana.";
+
+/**
+ * Funzione helper per estrarre un oggetto JSON da una stringa che potrebbe contenere testo extra
+ */
+const extractJsonFromText = (text: string) => {
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("Failed to parse JSON from AI response", e);
+    return null;
+  }
+};
 
 export const analyzeBikePart = async (base64Image: string): Promise<string> => {
   try {
@@ -26,14 +42,17 @@ export const extractSpecsFromUrl = async (url: string) => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     
-    const prompt = `Utilizza Google Search per trovare le specifiche tecniche ufficiali della bicicletta descritta in questo link: ${url}.
+    // Prompt più aggressivo per forzare l'uso di Google Search
+    const prompt = `Esegui una ricerca approfondita sul web per trovare le specifiche tecniche della bicicletta indicata in questo link: ${url}.
+    
+    Se il link non è direttamente accessibile, usa il nome del modello che trovi nell'URL per cercare la scheda tecnica ufficiale su siti come 99spokes, BikeRadar o il sito del produttore.
     
     DEVI IDENTIFICARE:
-    1. Nome commerciale esatto (es. Specialized Tarmac SL7 Comp 2023).
+    1. Nome commerciale esatto.
     2. Categoria (Corsa, Gravel o MTB).
-    3. Componenti: telaio, forcella, gruppo, cambio, freni, ruote, pneumatici, sella e peso.
+    3. Specifiche: telaio, forcella, gruppo, cambio, freni, ruote, pneumatici, sella e peso.
 
-    Rispondi RIGOROSAMENTE in formato JSON con questo schema:
+    RISPONDI ESCLUSIVAMENTE con un blocco JSON valido con questa struttura:
     {
       "extractedName": "Nome Bici",
       "extractedType": "Corsa | Gravel | MTB",
@@ -55,34 +74,19 @@ export const extractSpecsFromUrl = async (url: string) => {
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            extractedName: { type: Type.STRING },
-            extractedType: { type: Type.STRING },
-            specs: {
-              type: Type.OBJECT,
-              properties: {
-                telaio: { type: Type.STRING },
-                forcella: { type: Type.STRING },
-                gruppo: { type: Type.STRING },
-                cambio: { type: Type.STRING },
-                freni: { type: Type.STRING },
-                ruote: { type: Type.STRING },
-                pneumatici: { type: Type.STRING },
-                sella: { type: Type.STRING },
-                peso: { type: Type.STRING }
-              }
-            }
-          }
-        }
-      }
+        // Non forziamo responseMimeType qui perché il grounding di Search potrebbe iniettare citazioni nel testo
+        // che rompono la validità del JSON se non gestite dal modello perfettamente.
+      },
     });
 
-    const parsed = JSON.parse(response.text || '{}');
+    const textResponse = response.text || '';
+    const parsed = extractJsonFromText(textResponse);
     
-    // Estrazione delle fonti dai groundingChunks
+    if (!parsed) {
+      throw new Error("AI non ha restituito un formato dati valido.");
+    }
+
+    // Estrazione delle fonti dai groundingChunks (Fondamentale per il grounding)
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
       ?.map((chunk: any) => ({
         uri: chunk.web?.uri || '',
