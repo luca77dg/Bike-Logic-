@@ -7,8 +7,12 @@ const SEARCH_MODEL = 'gemini-3-pro-preview';
 const VISION_PROMPT = "Analizza questa parte di bicicletta (es. catena, pignoni, pastiglie). Valuta lo stato di usura su una scala da 1 a 10 e scrivi un breve consiglio tecnico in italiano.";
 
 const getApiKey = () => {
-  // @ts-ignore
-  return process.env.API_KEY || window.process?.env?.API_KEY || "";
+  // Accesso sicuro alla variabile d'ambiente
+  try {
+    return (window as any).process?.env?.API_KEY || "";
+  } catch (e) {
+    return "";
+  }
 };
 
 export const testAiConnection = async (): Promise<{success: boolean, message: string}> => {
