@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout } from './components/Layout';
-import { BikeCard } from './components/BikeCard';
-import { AIVision } from './components/AIVision';
-import { supabaseService } from './services/supabase';
-import { stravaService } from './services/strava';
-import { Bike, MaintenanceRecord } from './types';
+import { Layout } from './components/Layout.tsx';
+import { BikeCard } from './components/BikeCard.tsx';
+import { AIVision } from './components/AIVision.tsx';
+import { supabaseService } from './services/supabase.ts';
+import { stravaService } from './services/strava.ts';
+import { Bike, MaintenanceRecord } from './types.ts';
 
 // NOTE: Fill these with your Strava App credentials in Vercel/Local env
 const STRAVA_CLIENT_ID = "YOUR_STRAVA_CLIENT_ID";
@@ -18,7 +18,6 @@ const App: React.FC = () => {
   const [activeAnalysis, setActiveAnalysis] = useState<Bike | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // Load data from "Supabase" (localStorage in this mock)
   const fetchData = useCallback(async () => {
     setLoading(true);
     const bikeData = await supabaseService.getBikes();
@@ -34,8 +33,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    
-    // Check for Strava OAuth callback
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code) {
@@ -45,10 +42,8 @@ const App: React.FC = () => {
 
   const handleStravaCallback = async (code: string) => {
     try {
-      // In a real app, this should be handled by a secure server-side function to protect CLIENT_SECRET
       const tokenData = await stravaService.exchangeToken(STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, code);
       console.log('Strava Authed:', tokenData);
-      // Logic to sync bikes/gear would go here
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch (err) {
       console.error('Strava Auth Error:', err);
@@ -56,7 +51,6 @@ const App: React.FC = () => {
   };
 
   const syncKm = async (bike: Bike) => {
-    // Mock Sync: Imagine we fetched this from Strava API
     const updatedBike = { ...bike, total_km: bike.total_km + Math.random() * 50 };
     await supabaseService.saveBike(updatedBike);
     setBikes(prev => prev.map(b => b.id === bike.id ? updatedBike : b));
@@ -77,7 +71,6 @@ const App: React.FC = () => {
     
     await supabaseService.saveBike(newBike);
     
-    // Default maintenance parts
     const defaultParts = [
       { name: 'Catena', limit: 3000 },
       { name: 'Pasticche Freni', limit: 1500 },
@@ -146,7 +139,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Add Bike */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
@@ -187,7 +179,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* AI Vision Overlay */}
       {activeAnalysis && (
         <AIVision 
           bikeName={activeAnalysis.name} 

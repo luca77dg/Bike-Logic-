@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Bike, MaintenanceRecord } from '../types';
+import { Bike, MaintenanceRecord } from '../types.ts';
 
 interface BikeCardProps {
   bike: Bike;

@@ -1,8 +1,5 @@
 
-import { Bike, MaintenanceRecord } from '../types';
-
-// In a real app, you would use createClient from '@supabase/supabase-js'
-// and use process.env.VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+import { Bike, MaintenanceRecord } from '../types.ts';
 
 const STORAGE_KEY_BIKES = 'bikelogic_bikes';
 const STORAGE_KEY_MAINTENANCE = 'bikelogic_maintenance';
