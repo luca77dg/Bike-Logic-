@@ -1,99 +1,100 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const PROMPT_VISION = "Analizza questa foto di una parte meccanica di bicicletta. Descrivi lo stato di pulizia e usura. Fornisci un consiglio di manutenzione breve in italiano.";
+const VISION_MODEL = 'gemini-2.5-flash-image';
+const SEARCH_MODEL = 'gemini-3-pro-preview';
 
-/**
- * Funzione di utilità per pulire e parsare il JSON restituito dal modello
- */
-const cleanAndParseJson = (text: string) => {
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const target = jsonMatch ? jsonMatch[0] : text;
-    return JSON.parse(target);
-  } catch (e) {
-    console.error("JSON Parse Error:", e, "Original text:", text);
-    return null;
-  }
-};
+const VISION_PROMPT = "Analizza questa parte di bicicletta (es. catena, pignoni, pastiglie). Valuta lo stato di usura su una scala da 1 a 10 e scrivi un breve consiglio tecnico in italiano.";
 
 export const testAiConnection = async (): Promise<{success: boolean, message: string}> => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) return { success: false, message: "Chiave API non trovata (process.env.API_KEY è undefined)." };
+  if (!apiKey) return { success: false, message: "ERRORE: Variabile API_KEY non trovata. Controlla Vercel." };
   
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: "Saluta in italiano.",
+      contents: "Test connessione. Rispondi 'OK'.",
     });
     return { success: true, message: `Connesso! Risposta: ${response.text}` };
   } catch (error: any) {
-    return { success: false, message: `Errore API: ${error.message}` };
+    return { success: false, message: `ERRORE API: ${error.message}` };
   }
 };
 
 export const analyzeBikePart = async (base64Image: string): Promise<string> => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) return "Configurazione mancante.";
+  if (!apiKey) return "Chiave mancante.";
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: VISION_MODEL,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Image.split(',')[1] } },
-          { text: PROMPT_VISION }
+          { text: VISION_PROMPT }
         ]
       }
     });
     return response.text || "Nessun risultato.";
   } catch (error: any) {
-    return `Errore: ${error.message}`;
+    return `Errore Vision: ${error.message}`;
   }
 };
 
 export const extractBikeData = async (query: string, onStatusUpdate?: (status: string) => void) => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.error("API_KEY missing");
+    return null;
+  }
 
   try {
-    onStatusUpdate?.("Ricerca informazioni con Google...");
+    onStatusUpdate?.("Ricerca specifica in corso...");
     const ai = new GoogleGenAI({ apiKey });
     
-    const prompt = `Trova i dati tecnici ufficiali per questa bici: "${query}". 
-    Restituisci ESCLUSIVAMENTE un oggetto JSON con queste chiavi:
-    extractedName (Nome completo), 
-    extractedType (Corsa, Gravel o MTB), 
-    specs (oggetto con: telaio, gruppo, freni, ruote, peso). 
-    Sii preciso e usa l'italiano per le descrizioni.`;
+    // Prompt super-strutturato per evitare errori di parsing
+    const prompt = `Trova i dettagli tecnici per la bicicletta: ${query}. 
+    Rispondi esclusivamente con un oggetto JSON valido (senza markdown) che contenga:
+    {
+      "extractedName": "Nome Modello",
+      "extractedType": "MTB" | "Corsa" | "Gravel",
+      "specs": {
+        "telaio": "descrizione",
+        "gruppo": "descrizione",
+        "freni": "descrizione",
+        "ruote": "descrizione",
+        "peso": "kg"
+      }
+    }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: SEARCH_MODEL,
       contents: prompt,
       config: { 
         tools: [{ googleSearch: {} }] 
       },
     });
 
-    onStatusUpdate?.("Elaborazione specifiche...");
-    const data = cleanAndParseJson(response.text || '');
+    onStatusUpdate?.("Parsing dati...");
+    const rawText = response.text || '';
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Risposta AI non valida");
     
-    if (data) {
-      // Estraiamo i link dalle fonti di ricerca per trasparenza
-      const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-        ?.map((chunk: any) => ({
-          uri: chunk.web?.uri || '',
-          title: chunk.web?.title || 'Scheda tecnica'
-        }))
-        .filter((s: any) => s.uri) || [];
-      
-      if (data.specs) data.specs.sources = sources;
-      return data;
-    }
-    return null;
-  } catch (error) {
-    console.error("Extraction error:", error);
+    const data = JSON.parse(jsonMatch[0]);
+    
+    // Aggiungiamo le fonti per verifica
+    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
+      ?.map((chunk: any) => ({
+        uri: chunk.web?.uri || '',
+        title: chunk.web?.title || 'Dati tecnici'
+      })).filter((s: any) => s.uri) || [];
+    
+    if (data.specs) data.specs.sources = sources;
+    return data;
+  } catch (error: any) {
+    console.error("Search error:", error);
+    onStatusUpdate?.(`Errore: ${error.message}`);
     return null;
   }
 };
