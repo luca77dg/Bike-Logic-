@@ -33,6 +33,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
   const [newName, setNewName] = useState('');
   const [newLimit, setNewLimit] = useState(3000);
   const [installKm, setInstallKm] = useState(bike.total_km);
+  const [newNotes, setNewNotes] = useState('');
 
   const handleAddComponent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,12 +43,14 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
       component_name: newName,
       km_at_install: installKm,
       last_check_km: installKm,
-      lifespan_limit: newLimit
+      lifespan_limit: newLimit,
+      notes: newNotes.trim() || undefined
     };
     await supabaseService.saveMaintenance(newRecord);
     setNewName('');
     setNewLimit(3000);
     setInstallKm(bike.total_km);
+    setNewNotes('');
     setIsAdding(false);
     onUpdate();
   };
@@ -169,6 +172,16 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                     />
                   </div>
                 </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Note (Opzionale)</label>
+                  <textarea 
+                    value={newNotes}
+                    onChange={(e) => setNewNotes(e.target.value)}
+                    rows={2}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all resize-none"
+                    placeholder="Es: Shimano Ultegra, montata con grasso al litio..."
+                  />
+                </div>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase hover:text-white transition-colors">Annulla</button>
                   <button type="submit" className="flex-[2] py-3 bg-blue-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition-all">Aggiungi</button>
@@ -187,27 +200,49 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
             </button>
           )}
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {records.length > 0 ? records.map(record => {
               const kmSinceInstall = bike.total_km - record.km_at_install;
               const wearPercentage = Math.min(Math.round((kmSinceInstall / record.lifespan_limit) * 100), 100);
               const isCritical = wearPercentage > 85;
 
               return (
-                <div key={record.id} className="p-5 bg-slate-800/30 border border-slate-700/50 rounded-2xl flex items-center justify-between group hover:border-blue-500/20 transition-all">
-                  <div className="flex-1 min-w-0 mr-4">
-                    <div className="flex justify-between items-end mb-2">
-                      <span className="text-sm font-bold text-white truncate">{record.component_name}</span>
-                      <span className={`text-[10px] font-black ${isCritical ? 'text-red-400' : 'text-blue-400'}`}>{wearPercentage}%</span>
+                <div key={record.id} className="p-5 bg-slate-800/30 border border-slate-700/50 rounded-2xl flex flex-col group hover:border-blue-500/20 transition-all">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex-1 min-w-0 mr-4">
+                      <div className="flex justify-between items-end mb-2">
+                        <span className="text-sm font-bold text-white truncate">{record.component_name}</span>
+                        <span className={`text-[10px] font-black ${isCritical ? 'text-red-400' : 'text-blue-400'}`}>{wearPercentage}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${isCritical ? 'bg-gradient-to-r from-red-600 to-orange-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`}
+                          style={{ width: `${wearPercentage}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${isCritical ? 'bg-gradient-to-r from-red-600 to-orange-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`}
-                        style={{ width: `${wearPercentage}%` }}
-                      ></div>
+                    <div className="flex gap-2 shrink-0">
+                      <button 
+                        onClick={() => handleReset(record)}
+                        className="h-10 px-4 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl border border-blue-600/20 transition-all flex items-center gap-2 group/btn"
+                        title="Registra Sostituzione"
+                      >
+                        <i className="fa-solid fa-rotate text-xs group-hover/btn:rotate-180 transition-transform duration-500"></i>
+                        <span className="text-[9px] font-black uppercase tracking-widest">Sostituisci</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(record.id)}
+                        className="h-10 w-10 bg-slate-800 text-slate-500 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                        title="Elimina"
+                      >
+                        <i className="fa-solid fa-trash-can text-xs"></i>
+                      </button>
                     </div>
-                    <div className="flex justify-between mt-2">
-                      <div className="flex flex-col">
+                  </div>
+                  
+                  <div className="flex justify-between items-start pt-2 border-t border-slate-800/50">
+                    <div className="flex flex-col gap-1 flex-1 min-w-0 mr-4">
+                      <div className="flex gap-4">
                         <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight">
                           Uso: {kmSinceInstall.toLocaleString()} / {record.lifespan_limit.toLocaleString()} km
                         </p>
@@ -215,27 +250,18 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                           Montato a: {record.km_at_install.toLocaleString()} km
                         </p>
                       </div>
-                      {isCritical && (
-                        <p className="text-[9px] text-red-500 font-black uppercase animate-pulse">Sostituire!</p>
+                      {record.notes && (
+                        <div className="flex items-start gap-2 mt-1 bg-slate-900/50 p-2 rounded-lg border border-white/5">
+                          <i className="fa-solid fa-note-sticky text-[8px] text-slate-500 mt-0.5"></i>
+                          <p className="text-[10px] text-slate-400 font-medium leading-tight italic break-words">
+                            {record.notes}
+                          </p>
+                        </div>
                       )}
                     </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button 
-                      onClick={() => handleReset(record)}
-                      className="h-10 px-4 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl border border-blue-600/20 transition-all flex items-center gap-2 group/btn"
-                      title="Registra Sostituzione"
-                    >
-                      <i className="fa-solid fa-rotate text-xs group-hover/btn:rotate-180 transition-transform duration-500"></i>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Sostituisci</span>
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(record.id)}
-                      className="h-10 w-10 bg-slate-800 text-slate-500 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-                      title="Elimina"
-                    >
-                      <i className="fa-solid fa-trash-can text-xs"></i>
-                    </button>
+                    {isCritical && (
+                      <p className="text-[9px] text-red-500 font-black uppercase animate-pulse mt-1 shrink-0">Sostituire!</p>
+                    )}
                   </div>
                 </div>
               );

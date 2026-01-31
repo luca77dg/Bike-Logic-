@@ -40,6 +40,7 @@ export interface MaintenanceRecord {
   km_at_install: number;
   last_check_km: number;
   lifespan_limit: number;
+  notes?: string;
 }
 
 export interface StravaTokenResponse {
