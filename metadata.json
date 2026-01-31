@@ -1,0 +1,7 @@
+{
+  "name": "BikeLogic AI",
+  "description": "Smart bike maintenance manager with Strava synchronization and AI-powered transmission analysis using Gemini 3 Flash.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
