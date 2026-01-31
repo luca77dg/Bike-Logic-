@@ -23,6 +23,7 @@ const App: React.FC = () => {
   
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkStatus = useCallback(async () => {
     setIsCloudEnabled(supabaseService.isConfigured());
@@ -64,6 +65,17 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchData, checkStatus]);
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImageToCrop(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveBike = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -96,6 +108,17 @@ const App: React.FC = () => {
           product_url: formData.get('product_url') as string || "",
           specs: {
             ...(aiResult?.specs || {}),
+            // Override manuali se presenti nel form
+            telaio: (formData.get('specs_telaio') as string) || aiResult?.specs?.telaio,
+            forcella: (formData.get('specs_forcella') as string) || aiResult?.specs?.forcella,
+            gruppo: (formData.get('specs_gruppo') as string) || aiResult?.specs?.gruppo,
+            cambio: (formData.get('specs_cambio') as string) || aiResult?.specs?.cambio,
+            freni: (formData.get('specs_freni') as string) || aiResult?.specs?.freni,
+            ruote: (formData.get('specs_ruote') as string) || aiResult?.specs?.ruote,
+            pneumatici: (formData.get('specs_pneumatici') as string) || aiResult?.specs?.pneumatici,
+            clearance_max: (formData.get('specs_clearance') as string) || aiResult?.specs?.clearance_max,
+            sella: (formData.get('specs_sella') as string) || aiResult?.specs?.sella,
+            peso: (formData.get('specs_peso') as string) || aiResult?.specs?.peso,
             imageUrl: coverPhoto || aiResult?.specs?.imageUrl || null,
             photos: [] 
           }
@@ -113,10 +136,12 @@ const App: React.FC = () => {
             telaio: formData.get('specs_telaio') as string,
             forcella: formData.get('specs_forcella') as string,
             gruppo: formData.get('specs_gruppo') as string,
+            cambio: formData.get('specs_cambio') as string,
             freni: formData.get('specs_freni') as string,
             ruote: formData.get('specs_ruote') as string,
             pneumatici: formData.get('specs_pneumatici') as string,
             clearance_max: formData.get('specs_clearance') as string,
+            sella: formData.get('specs_sella') as string,
             peso: formData.get('specs_peso') as string,
             imageUrl: coverPhoto || editingBike!.specs?.imageUrl || null,
           }
@@ -216,11 +241,39 @@ const App: React.FC = () => {
                   <p>{errorMessage}</p>
                 </div>
               )}
+              
               <div className="space-y-6">
+                {/* Immagine di Copertina */}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Foto Copertina</label>
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-video w-full bg-[#161c2d] border-2 border-dashed border-slate-800 rounded-3xl overflow-hidden flex flex-col items-center justify-center group cursor-pointer hover:border-blue-500/50 transition-all relative"
+                  >
+                    {coverPhoto ? (
+                      <img src={coverPhoto} className="w-full h-full object-cover" alt="Cover Preview" />
+                    ) : (
+                      <div className="text-center p-6">
+                        <div className="w-12 h-12 bg-slate-900 rounded-2xl border border-slate-800 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                          <i className="fa-solid fa-camera text-slate-700 group-hover:text-blue-500"></i>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest leading-none">Seleziona Immagine</p>
+                      </div>
+                    )}
+                    {coverPhoto && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                         <i className="fa-solid fa-rotate text-white text-xl"></i>
+                      </div>
+                    )}
+                  </div>
+                  <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" accept="image/*" />
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Modello / Nome</label>
                   <input name="query" defaultValue={editingBike?.name || ''} required className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-blue-600/50 transition-all" placeholder="Es: Specialized Tarmac SL7" />
                 </div>
+
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Km Totali</label>
@@ -235,7 +288,41 @@ const App: React.FC = () => {
                     </select>
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">URL Prodotto (Opzionale)</label>
+                  <input name="product_url" defaultValue={editingBike?.product_url || ''} className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-blue-600/50 transition-all" placeholder="https://www.specialized.com/..." />
+                </div>
+
+                <div className="pt-6 border-t border-slate-800">
+                  <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-6">Dettagli Tecnici (Manuali o AI)</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[
+                      { id: 'telaio', label: 'Telaio' },
+                      { id: 'forcella', label: 'Forcella' },
+                      { id: 'gruppo', label: 'Gruppo' },
+                      { id: 'cambio', label: 'Cambio' },
+                      { id: 'freni', label: 'Freni' },
+                      { id: 'ruote', label: 'Ruote' },
+                      { id: 'pneumatici', label: 'Pneumatici' },
+                      { id: 'clearance', label: 'Passaggio Ruota Max' },
+                      { id: 'sella', label: 'Sella' },
+                      { id: 'peso', label: 'Peso' }
+                    ].map(field => (
+                      <div key={field.id}>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-2 ml-1">{field.label}</label>
+                        <input 
+                          name={`specs_${field.id}`} 
+                          defaultValue={(editingBike?.specs as any)?.[field.id === 'clearance' ? 'clearance_max' : field.id] || ''} 
+                          className="w-full bg-[#161c2d]/50 border border-slate-800 rounded-xl px-4 py-3 text-white text-xs outline-none focus:ring-1 ring-blue-500/30 transition-all"
+                          placeholder={field.label}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
+
               <div className="pt-6 sticky bottom-0 bg-[#0f1421] py-4 border-t border-slate-800/50">
                 <button type="submit" disabled={isExtracting} className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black py-5 rounded-2xl shadow-xl flex items-center justify-center gap-4 transition-all uppercase tracking-widest">
                   {isExtracting ? <><i className="fa-solid fa-spinner fa-spin"></i><span>{extractionStatus}</span></> : <><i className="fa-solid fa-check"></i><span>Salva</span></>}
