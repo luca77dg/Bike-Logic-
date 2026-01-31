@@ -8,9 +8,6 @@ import { stravaService } from './services/strava.ts';
 import { extractSpecsFromUrl } from './services/gemini.ts';
 import { Bike, MaintenanceRecord, BikeType } from './types.ts';
 
-const STRAVA_CLIENT_ID = "YOUR_STRAVA_CLIENT_ID";
-const STRAVA_CLIENT_SECRET = "YOUR_STRAVA_CLIENT_SECRET";
-
 const App: React.FC = () => {
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [maintenance, setMaintenance] = useState<Record<string, MaintenanceRecord[]>>({});
@@ -63,10 +60,9 @@ const App: React.FC = () => {
     
     let aiResult = null;
     if (url) {
-      aiResult = await extractSpecsFromUrl(url, manualName);
+      aiResult = await extractSpecsFromUrl(url);
     }
 
-    // Priorità all'AI se il link è fornito, altrimenti usa i dati manuali
     const finalName = (aiResult?.extractedName && aiResult.extractedName !== "unknown") ? aiResult.extractedName : (manualName || "Bici senza nome");
     const finalType = (aiResult?.extractedType && ['Corsa', 'Gravel', 'MTB'].includes(aiResult.extractedType)) ? aiResult.extractedType as BikeType : manualType;
 
@@ -75,7 +71,7 @@ const App: React.FC = () => {
       user_id: 'current-user',
       name: finalName,
       type: finalType,
-      strava_gear_id: formData.get('gearId') as string,
+      strava_gear_id: null,
       total_km: parseFloat(formData.get('km') as string) || 0,
       product_url: url,
       specs: aiResult?.specs || undefined
@@ -151,9 +147,11 @@ const App: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
             <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur-md">
               <h2 className="text-xl font-bold text-white">Configura Bicicletta</h2>
-              <button onClick={() => setShowAddForm(false)} className="text-slate-500 hover:text-white" disabled={isExtracting}>
-                <i className="fa-solid fa-xmark text-xl"></i>
-              </button>
+              {!isExtracting && (
+                <button onClick={() => setShowAddForm(false)} className="text-slate-500 hover:text-white">
+                  <i className="fa-solid fa-xmark text-xl"></i>
+                </button>
+              )}
             </div>
             <form onSubmit={handleAddBike} className="p-6 space-y-4">
               <div>
@@ -162,15 +160,15 @@ const App: React.FC = () => {
                   <input name="url" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors pl-10" placeholder="https://www.trekbikes.com/..." disabled={isExtracting} />
                   <i className="fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-500"></i>
                 </div>
-                <p className="text-[10px] text-blue-400 mt-1 italic font-medium">✨ Inserisci il link e l'AI configurerà tutto automaticamente!</p>
+                <p className="text-[10px] text-blue-400 mt-1 italic font-medium">✨ Gemini cercherà le specifiche ufficiali sul web.</p>
               </div>
 
-              <div className="border-t border-slate-800 pt-4 opacity-70">
+              <div className={`border-t border-slate-800 pt-4 transition-opacity duration-300 ${isExtracting ? 'opacity-30' : 'opacity-70'}`}>
                 <p className="text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-widest">O inserisci manualmente</p>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Nome (Facoltativo se link presente)</label>
-                    <input name="name" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="Es. My Specialized" disabled={isExtracting} />
+                    <input name="name" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="Es. My specialized" disabled={isExtracting} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -192,16 +190,19 @@ const App: React.FC = () => {
               <button 
                 type="submit" 
                 disabled={isExtracting}
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold py-4 rounded-xl mt-4 transition-all active:scale-95 shadow-lg shadow-blue-900/40 flex items-center justify-center gap-3"
+                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold py-4 rounded-xl mt-4 transition-all active:scale-95 shadow-lg shadow-blue-900/40 flex flex-col items-center justify-center"
               >
                 {isExtracting ? (
                   <>
-                    <i className="fa-solid fa-wand-magic-sparkles fa-spin"></i>
-                    AI sta configurando la bici...
+                    <div className="flex items-center gap-3">
+                      <i className="fa-solid fa-wand-magic-sparkles fa-spin"></i>
+                      <span>Scansione AI in corso...</span>
+                    </div>
+                    <span className="text-[9px] uppercase tracking-tighter opacity-60 mt-1">Sto consultando i database tecnici sul web</span>
                   </>
                 ) : (
                   <>
-                    <i className="fa-solid fa-bicycle"></i>
+                    <i className="fa-solid fa-bicycle mb-1"></i>
                     Configura Bicicletta
                   </>
                 )}

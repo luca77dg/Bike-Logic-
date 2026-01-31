@@ -22,31 +22,31 @@ export const analyzeBikePart = async (base64Image: string): Promise<string> => {
   }
 };
 
-export const extractSpecsFromUrl = async (url: string, manualName?: string) => {
+export const extractSpecsFromUrl = async (url: string) => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-    const prompt = `Analizza il seguente link: ${url}. 
-    Se il link non è accessibile direttamente, usa Google Search per trovare le informazioni ufficiali.
     
-    DEVI estrarre:
-    1. Il nome commerciale completo della bicicletta.
-    2. Il tipo di bicicletta (DEVE essere uno tra: 'Corsa', 'Gravel', 'MTB').
-    3. La scheda tecnica dettagliata dei componenti.
+    const prompt = `Utilizza Google Search per trovare le specifiche tecniche ufficiali della bicicletta descritta in questo link: ${url}.
+    
+    DEVI IDENTIFICARE:
+    1. Nome commerciale esatto (es. Specialized Tarmac SL7 Comp 2023).
+    2. Categoria (Corsa, Gravel o MTB).
+    3. Componenti: telaio, forcella, gruppo, cambio, freni, ruote, pneumatici, sella e peso.
 
-    Restituisci i dati in formato JSON seguendo rigorosamente questo schema:
+    Rispondi RIGOROSAMENTE in formato JSON con questo schema:
     {
-      "extractedName": "Nome completo della bici",
+      "extractedName": "Nome Bici",
       "extractedType": "Corsa | Gravel | MTB",
       "specs": {
-        "telaio": "descrizione",
-        "forcella": "descrizione",
-        "gruppo": "nome gruppo",
-        "cambio": "dettaglio cambio",
-        "freni": "tipo freni",
-        "ruote": "modello ruote",
-        "pneumatici": "modello pneumatici",
-        "sella": "modello sella",
-        "peso": "peso dichiarato"
+        "telaio": "...",
+        "forcella": "...",
+        "gruppo": "...",
+        "cambio": "...",
+        "freni": "...",
+        "ruote": "...",
+        "pneumatici": "...",
+        "sella": "...",
+        "peso": "..."
       }
     }`;
 
@@ -80,9 +80,23 @@ export const extractSpecsFromUrl = async (url: string, manualName?: string) => {
       }
     });
 
-    return JSON.parse(response.text || '{}');
+    const parsed = JSON.parse(response.text || '{}');
+    
+    // Estrazione delle fonti dai groundingChunks
+    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
+      ?.map((chunk: any) => ({
+        uri: chunk.web?.uri || '',
+        title: chunk.web?.title || 'Fonte Web'
+      }))
+      .filter((s: any) => s.uri) || [];
+
+    if (parsed.specs) {
+      parsed.specs.sources = sources;
+    }
+
+    return parsed;
   } catch (error) {
-    console.error("Gemini Specs Extraction error:", error);
+    console.error("Gemini Search/Extraction error:", error);
     return null;
   }
 };

@@ -26,7 +26,7 @@ export const BikeSpecsModal: React.FC<BikeSpecsProps> = ({ specs, onClose }) => 
         <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur-md sticky top-0">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <i className="fa-solid fa-file-lines text-blue-500"></i>
-            Scheda Tecnica
+            Scheda Tecnica AI
           </h2>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
             <i className="fa-solid fa-xmark text-xl"></i>
@@ -34,21 +34,47 @@ export const BikeSpecsModal: React.FC<BikeSpecsProps> = ({ specs, onClose }) => 
         </div>
         
         <div className="p-6 overflow-y-auto space-y-4">
-          {items.map((item, idx) => item.value && (
-            <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50">
-              <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
-                <i className={`fa-solid ${item.icon} text-blue-400`}></i>
+          <div className="grid grid-cols-1 gap-3">
+            {items.map((item, idx) => item.value && (
+              <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
+                  <i className={`fa-solid ${item.icon} text-blue-400`}></i>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-1">{item.label}</p>
+                  <p className="text-slate-200 text-sm font-medium leading-tight">{item.value}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-1">{item.label}</p>
-                <p className="text-slate-200 text-sm font-medium leading-tight">{item.value}</p>
+            ))}
+          </div>
+
+          {specs.sources && specs.sources.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-slate-800">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <i className="fa-solid fa-magnifying-glass text-blue-500/50"></i>
+                Fonti trovate da Google Search
+              </h3>
+              <div className="space-y-2">
+                {specs.sources.map((source, idx) => (
+                  <a 
+                    key={idx} 
+                    href={source.uri} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group"
+                  >
+                    <span className="text-xs text-slate-300 truncate pr-4">{source.title}</span>
+                    <i className="fa-solid fa-arrow-up-right-from-square text-[10px] text-blue-500 opacity-50 group-hover:opacity-100"></i>
+                  </a>
+                ))}
               </div>
             </div>
-          ))}
+          )}
+
           {!items.some(i => i.value) && (
             <div className="text-center py-10">
               <i className="fa-solid fa-ghost text-4xl text-slate-800 mb-4"></i>
-              <p className="text-slate-500">Nessuna specifica trovata per questa bici.</p>
+              <p className="text-slate-500">Nessuna specifica trovata. Prova con un link più dettagliato.</p>
             </div>
           )}
         </div>

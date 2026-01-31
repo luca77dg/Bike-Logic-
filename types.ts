@@ -1,6 +1,11 @@
 
 export type BikeType = 'Corsa' | 'Gravel' | 'MTB';
 
+export interface BikeSource {
+  uri: string;
+  title: string;
+}
+
 export interface BikeSpecs {
   telaio?: string;
   forcella?: string;
@@ -11,6 +16,7 @@ export interface BikeSpecs {
   pneumatici?: string;
   sella?: string;
   peso?: string;
+  sources?: BikeSource[];
 }
 
 export interface Bike {
