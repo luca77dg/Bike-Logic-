@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Bike, MaintenanceRecord } from '../types.ts';
-import { BikeSpecsModal } from './BikeSpecs.tsx';
+import { BikeSpecsModal } from './BikeSpecsModal.tsx';
+import { BikeAlbumModal } from './BikeAlbumModal.tsx';
 import { MaintenanceManager } from './MaintenanceManager.tsx';
 
 interface BikeCardProps {
@@ -16,6 +17,7 @@ interface BikeCardProps {
 
 export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze, onEdit, onUpdateKm, onDelete, onRefresh }) => {
   const [showSpecs, setShowSpecs] = useState(false);
+  const [showAlbum, setShowAlbum] = useState(false);
   const [showMaintManager, setShowMaintManager] = useState(false);
 
   const getIcon = () => {
@@ -25,6 +27,8 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
       default: return 'fa-road';
     }
   };
+
+  const photoCount = bike.specs?.photos?.length || 0;
 
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-[2.5rem] overflow-hidden hover:border-blue-500/30 transition-all group relative flex flex-col shadow-xl">
@@ -43,10 +47,17 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
-        <div className="absolute bottom-4 left-6">
+        <div className="absolute bottom-4 left-6 flex items-center gap-2">
           <span className="bg-blue-600/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full border border-blue-600/30 backdrop-blur-md uppercase tracking-tighter">
             {bike.type}
           </span>
+          <button 
+            onClick={() => setShowAlbum(true)}
+            className="bg-black/40 text-white text-[9px] font-black px-2 py-1 rounded-full border border-white/20 backdrop-blur-md flex items-center gap-1 hover:bg-purple-600/50 transition-colors"
+          >
+            <i className="fa-solid fa-images text-[8px]"></i>
+            {photoCount} Album
+          </button>
         </div>
       </div>
 
@@ -54,13 +65,20 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
         <div className="flex justify-between items-start mb-6">
           <div className="min-w-0 flex-1">
             <h3 className="text-2xl font-black text-white truncate pr-2">{bike.name}</h3>
-            <div className="flex gap-4 items-center mt-1">
+            <div className="flex gap-4 items-center mt-2">
               <button 
                 onClick={() => setShowSpecs(true)}
-                className="text-[10px] font-black text-blue-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-1 transition-colors"
+                className="text-[9px] font-black text-blue-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-1.5 transition-colors bg-blue-600/10 px-3 py-1.5 rounded-full border border-blue-500/20"
               >
-                <i className="fa-solid fa-circle-info"></i>
+                <i className="fa-solid fa-file-invoice"></i>
                 Scheda Tecnica
+              </button>
+              <button 
+                onClick={() => setShowAlbum(true)}
+                className="text-[9px] font-black text-purple-400 hover:text-purple-300 uppercase tracking-widest flex items-center gap-1.5 transition-colors bg-purple-600/10 px-3 py-1.5 rounded-full border border-purple-500/20"
+              >
+                <i className="fa-solid fa-images"></i>
+                Album Foto
               </button>
             </div>
           </div>
@@ -132,9 +150,6 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
           }) : (
             <p className="text-xs text-slate-600 font-bold italic">Nessun componente tracciato</p>
           )}
-          {maintenance.length > 3 && (
-            <p className="text-[9px] text-slate-500 font-bold uppercase text-center">+ altri {maintenance.length - 3} componenti</p>
-          )}
         </div>
 
         <button 
@@ -151,6 +166,14 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
           specs={bike.specs} 
           productUrl={bike.product_url}
           onClose={() => setShowSpecs(false)} 
+        />
+      )}
+
+      {showAlbum && (
+        <BikeAlbumModal 
+          bike={bike}
+          onUpdate={onRefresh}
+          onClose={() => setShowAlbum(false)} 
         />
       )}
 

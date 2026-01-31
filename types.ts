@@ -18,6 +18,7 @@ export interface BikeSpecs {
   sella?: string;
   peso?: string;
   imageUrl?: string;
+  photos?: string[];
   sources?: BikeSource[];
 }
 

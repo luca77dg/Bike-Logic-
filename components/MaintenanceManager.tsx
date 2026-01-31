@@ -10,10 +10,29 @@ interface MaintenanceManagerProps {
   onClose: () => void;
 }
 
+interface ComponentSuggestion {
+  name: string;
+  limit: number;
+  icon: string;
+}
+
+const COMMON_SUGGESTIONS: ComponentSuggestion[] = [
+  { name: 'Catena', limit: 3000, icon: 'fa-link' },
+  { name: 'Pasticche Freni (Ant)', limit: 2000, icon: 'fa-circle-stop' },
+  { name: 'Pasticche Freni (Post)', limit: 2000, icon: 'fa-circle-stop' },
+  { name: 'Copertone Anteriore', limit: 4000, icon: 'fa-ring' },
+  { name: 'Copertone Posteriore', limit: 3000, icon: 'fa-ring' },
+  { name: 'Pacco Pignoni', limit: 8000, icon: 'fa-gear' },
+  { name: 'Liquido Sigillante', limit: 500, icon: 'fa-droplet' },
+  { name: 'Revisione Forcella', limit: 5000, icon: 'fa-code-fork' },
+  { name: 'Cavi e Guaine', limit: 6000, icon: 'fa-lines-leaning' },
+];
+
 export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, records, onUpdate, onClose }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLimit, setNewLimit] = useState(3000);
+  const [installKm, setInstallKm] = useState(bike.total_km);
 
   const handleAddComponent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,26 +40,40 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
       id: crypto.randomUUID(),
       bike_id: bike.id,
       component_name: newName,
-      km_at_install: bike.total_km,
-      last_check_km: bike.total_km,
+      km_at_install: installKm,
+      last_check_km: installKm,
       lifespan_limit: newLimit
     };
     await supabaseService.saveMaintenance(newRecord);
     setNewName('');
+    setNewLimit(3000);
+    setInstallKm(bike.total_km);
     setIsAdding(false);
     onUpdate();
   };
 
+  const applySuggestion = (suggestion: ComponentSuggestion) => {
+    setNewName(suggestion.name);
+    setNewLimit(suggestion.limit);
+  };
+
   const handleReset = async (record: MaintenanceRecord) => {
-    const confirmation = confirm(
-      `Confermi la sostituzione/manutenzione di: ${record.component_name}?\n\nL'usura verrà azzerata partendo dal chilometraggio attuale della bici (${bike.total_km.toLocaleString()} km).`
+    const customKm = window.prompt(
+      `Confermi la sostituzione di: ${record.component_name}?\nInserisci i km della bici al momento della sostituzione:`,
+      bike.total_km.toString()
     );
     
-    if (confirmation) {
+    if (customKm !== null) {
+      const resetKm = parseFloat(customKm);
+      if (isNaN(resetKm)) {
+        alert("Inserisci un valore numerico valido.");
+        return;
+      }
+
       const updated = { 
         ...record, 
-        km_at_install: bike.total_km,
-        last_check_km: bike.total_km 
+        km_at_install: resetKm,
+        last_check_km: resetKm 
       };
       await supabaseService.saveMaintenance(updated);
       onUpdate();
@@ -79,40 +112,77 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
 
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           {isAdding ? (
-            <form onSubmit={handleAddComponent} className="mb-8 p-6 bg-slate-800/50 rounded-3xl border border-blue-500/30 space-y-4 animate-in slide-in-from-top-4">
-              <h3 className="text-xs font-black text-blue-400 uppercase tracking-widest mb-2">Nuovo Componente</h3>
-              <div>
-                <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Nome (es. Catena, Freni...)</label>
-                <input 
-                  autoFocus
-                  required
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500"
-                  placeholder="Es: Catena 12v, Pasticche Post..."
-                />
+            <div className="mb-8 animate-in slide-in-from-top-4 duration-300">
+              <div className="mb-4">
+                <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 ml-1">Suggeriti per te</h3>
+                <div className="flex flex-wrap gap-2">
+                  {COMMON_SUGGESTIONS.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => applySuggestion(suggestion)}
+                      className={`px-3 py-2 rounded-xl border text-[10px] font-bold uppercase transition-all flex items-center gap-2 ${
+                        newName === suggestion.name 
+                          ? 'bg-blue-600 border-blue-500 text-white' 
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                      }`}
+                    >
+                      <i className={`fa-solid ${suggestion.icon} text-[10px]`}></i>
+                      {suggestion.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>
-                <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Durata stimata (km)</label>
-                <input 
-                  type="number"
-                  required
-                  value={newLimit}
-                  onChange={(e) => setNewLimit(parseInt(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase">Annulla</button>
-                <button type="submit" className="flex-[2] py-3 bg-blue-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:bg-blue-500">Aggiungi</button>
-              </div>
-            </form>
+
+              <form onSubmit={handleAddComponent} className="p-6 bg-slate-800/50 rounded-3xl border border-blue-500/30 space-y-4">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest mb-2">Dati Componente</h3>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Nome</label>
+                  <input 
+                    autoFocus
+                    required
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all"
+                    placeholder="Es: Catena 12v, Pasticche Post..."
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Km all'installazione</label>
+                    <input 
+                      type="number"
+                      required
+                      value={installKm}
+                      onChange={(e) => setInstallKm(parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Durata stimata (km)</label>
+                    <input 
+                      type="number"
+                      required
+                      value={newLimit}
+                      onChange={(e) => setNewLimit(parseInt(e.target.value))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase hover:text-white transition-colors">Annulla</button>
+                  <button type="submit" className="flex-[2] py-3 bg-blue-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition-all">Aggiungi</button>
+                </div>
+              </form>
+            </div>
           ) : (
             <button 
               onClick={() => setIsAdding(true)}
-              className="w-full mb-8 py-4 bg-slate-800/50 hover:bg-slate-800 border border-dashed border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-blue-400 transition-all group"
+              className="w-full mb-8 py-5 bg-slate-800/50 hover:bg-slate-800 border border-dashed border-slate-700 rounded-2xl flex items-center justify-center gap-3 text-slate-400 hover:text-blue-400 transition-all group"
             >
-              <i className="fa-solid fa-plus text-xs group-hover:scale-125 transition-transform"></i>
+              <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-600 group-hover:border-blue-500 transition-all duration-300">
+                <i className="fa-solid fa-plus text-xs group-hover:text-white"></i>
+              </div>
               <span className="text-[10px] font-black uppercase tracking-widest">Traccia nuovo componente</span>
             </button>
           )}
@@ -137,9 +207,14 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                       ></div>
                     </div>
                     <div className="flex justify-between mt-2">
-                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight">
-                        Uso: {kmSinceInstall.toLocaleString()} / {record.lifespan_limit.toLocaleString()} km
-                      </p>
+                      <div className="flex flex-col">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight">
+                          Uso: {kmSinceInstall.toLocaleString()} / {record.lifespan_limit.toLocaleString()} km
+                        </p>
+                        <p className="text-[8px] text-slate-600 font-bold uppercase italic">
+                          Montato a: {record.km_at_install.toLocaleString()} km
+                        </p>
+                      </div>
                       {isCritical && (
                         <p className="text-[9px] text-red-500 font-black uppercase animate-pulse">Sostituire!</p>
                       )}

@@ -20,12 +20,11 @@ const App: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
   
-  const [manualPhoto, setManualPhoto] = useState<string | null>(null);
+  const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkKey = useCallback(async () => {
-    // Verifica se la chiave è valida e non è una stringa di fallback di Vercel
     const envKey = process.env.API_KEY;
     const isEnvKeyValid = envKey && envKey !== 'undefined' && envKey !== 'null' && envKey.trim() !== '';
     
@@ -64,11 +63,10 @@ const App: React.FC = () => {
       if (window.aistudio?.openSelectKey) {
         // @ts-ignore
         await window.aistudio.openSelectKey();
-        // Assumiamo successo immediato per mitigare race conditions
         setHasApiKey(true);
         setErrorMessage(null);
       } else {
-        alert("Configura la variabile API_KEY nelle impostazioni del tuo progetto Vercel (Environment Variables) e ri-esegui il deploy.");
+        alert("Configura la variabile API_KEY nelle impostazioni del tuo progetto Vercel.");
       }
     } catch (e) {
       console.error("Errore selettore:", e);
@@ -87,8 +85,9 @@ const App: React.FC = () => {
   };
 
   const handleCropComplete = (croppedImage: string) => {
-    setManualPhoto(croppedImage);
+    setCoverPhoto(croppedImage);
     setImageToCrop(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSaveBike = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -110,7 +109,8 @@ const App: React.FC = () => {
       pneumatici: formData.get('specs_pneumatici') as string,
       clearance_max: formData.get('specs_clearance') as string,
       peso: formData.get('specs_peso') as string,
-      imageUrl: manualPhoto || (editingBike?.specs?.imageUrl) || null
+      imageUrl: coverPhoto || null,
+      photos: editingBike?.specs?.photos || [] 
     };
 
     if (isNew) {
@@ -138,7 +138,8 @@ const App: React.FC = () => {
           product_url: formData.get('product_url') as string || "",
           specs: {
             ...(aiResult?.specs || {}),
-            imageUrl: manualPhoto || aiResult?.specs?.imageUrl || null
+            imageUrl: coverPhoto || aiResult?.specs?.imageUrl || null,
+            photos: [] 
           }
         };
         await supabaseService.saveBike(newBike);
@@ -164,7 +165,7 @@ const App: React.FC = () => {
       setShowForm(false);
     }
     
-    setManualPhoto(null);
+    setCoverPhoto(null);
     setEditingBike(null);
     fetchData();
   };
@@ -172,10 +173,10 @@ const App: React.FC = () => {
   const handleError = (err: any) => {
     if (err.message === "ENTITY_NOT_FOUND" || err.message === "API_KEY_MISSING") {
       setHasApiKey(false);
-      setErrorMessage("La chiave API è mancante o non valida. Clicca 'Collega API' in alto.");
+      setErrorMessage("La chiave API è mancante o non valida.");
       handleOpenKeySelector();
     } else if (err.message === "QUOTA_EXCEEDED") {
-      setErrorMessage("Limite di richieste raggiunto (Quota Esaurita). Riprova tra poco.");
+      setErrorMessage("Limite di richieste raggiunto (Quota Esaurita).");
     } else {
       setErrorMessage(err.message || "Errore durante il salvataggio.");
     }
@@ -184,14 +185,14 @@ const App: React.FC = () => {
   const openAddForm = () => {
     setErrorMessage(null);
     setEditingBike(null);
-    setManualPhoto(null);
+    setCoverPhoto(null);
     setShowForm(true);
   };
 
   const openEditForm = (bike: Bike) => {
     setErrorMessage(null);
     setEditingBike(bike);
-    setManualPhoto(bike.specs?.imageUrl || null);
+    setCoverPhoto(bike.specs?.imageUrl || null);
     setShowForm(true);
   };
 
@@ -201,12 +202,9 @@ const App: React.FC = () => {
         <div>
           <h2 className="text-3xl font-black text-white">Il Tuo Garage</h2>
           {!hasApiKey ? (
-            <button 
-              onClick={handleOpenKeySelector}
-              className="flex items-center gap-2 mt-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full w-fit hover:bg-red-500/20 transition-all group"
-            >
+            <button onClick={handleOpenKeySelector} className="flex items-center gap-2 mt-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full w-fit hover:bg-red-500/20 transition-all group">
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-              <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter group-hover:underline">AI non connessa (Clicca qui)</span>
+              <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter group-hover:underline">AI non connessa</span>
             </button>
           ) : (
             <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full w-fit">
@@ -216,11 +214,6 @@ const App: React.FC = () => {
           )}
         </div>
         <div className="flex gap-4">
-          {!hasApiKey && (
-            <button onClick={handleOpenKeySelector} className="bg-slate-800 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 border border-slate-700 hover:bg-slate-700 transition-all">
-              <i className="fa-solid fa-key"></i> Collega API
-            </button>
-          )}
           <button onClick={openAddForm} className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-blue-900/40 hover:bg-blue-500 transition-all">
             <i className="fa-solid fa-plus"></i> Aggiungi
           </button>
@@ -264,15 +257,15 @@ const App: React.FC = () => {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300 my-8">
-            <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
+          <div className="bg-[#0f1421] border border-slate-800 w-full max-w-xl rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in zoom-in duration-300 my-8">
+            <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-[#13192a]">
               <h2 className="text-2xl font-black text-white">{editingBike ? 'Modifica Bici' : 'Nuova Bici'}</h2>
-              <button onClick={() => setShowForm(false)} className="bg-slate-800 h-10 w-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              <button onClick={() => setShowForm(false)} className="bg-slate-800/50 h-10 w-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700">
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
             
-            <form onSubmit={handleSaveBike} className="p-8 space-y-8 custom-scrollbar max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleSaveBike} className="p-8 space-y-10 custom-scrollbar max-h-[75vh] overflow-y-auto">
               {errorMessage && (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-bold flex gap-3">
                   <i className="fa-solid fa-triangle-exclamation mt-1"></i>
@@ -281,74 +274,87 @@ const App: React.FC = () => {
               )}
 
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Informazioni Base</h3>
-                <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50 space-y-6">
+                <h3 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em]">Informazioni Base</h3>
+                <div className="space-y-6">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Modello / Nome</label>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Modello / Nome</label>
                     <input 
                       name="query" 
-                      defaultValue={editingBike?.name || ''}
+                      defaultValue={editingBike?.name || ''} 
                       required 
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 ring-blue-600/50" 
-                      placeholder="Es: Trek Emonda SL 6" 
+                      className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-blue-600/50 transition-all placeholder:text-slate-600" 
+                      placeholder="Es: Trek X-Caliber 8 2023" 
                     />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Km Totali</label>
-                      <input type="number" name="km" defaultValue={editingBike?.total_km || 0} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" />
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Km Totali</label>
+                      <input 
+                        type="number" 
+                        name="km" 
+                        defaultValue={editingBike?.total_km || 0} 
+                        className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-blue-600/50 transition-all" 
+                      />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Categoria</label>
-                      <select name="type" defaultValue={editingBike?.type || 'MTB'} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Categoria</label>
+                      <select 
+                        name="type" 
+                        defaultValue={editingBike?.type || 'MTB'} 
+                        className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-blue-600/50 transition-all appearance-none"
+                      >
                         <option value="MTB">MTB</option>
                         <option value="Corsa">Corsa</option>
                         <option value="Gravel">Gravel</option>
                       </select>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Link Sito Produttore</label>
-                    <input 
-                      name="product_url" 
-                      defaultValue={editingBike?.product_url || ''}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 ring-blue-600/50" 
-                      placeholder="https://www.marca.it/modello" 
-                    />
-                  </div>
                 </div>
               </div>
 
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Foto</h3>
-                <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50">
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="relative aspect-video w-full bg-slate-900 rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-500/50 transition-all group"
-                  >
-                    {manualPhoto ? (
-                      <div className="relative w-full h-full">
-                        <img src={manualPhoto} className="w-full h-full object-cover" alt="Preview" />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black text-white uppercase tracking-widest border border-white/20">Cambia o ricentra</span>
+                <h3 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em]">Foto Copertina</h3>
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="relative aspect-video w-full bg-[#161c2d] rounded-2xl border-2 border-dashed border-slate-800 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-600/50 transition-all group"
+                >
+                  {coverPhoto ? (
+                    <div className="relative w-full h-full">
+                      <img src={coverPhoto} className="w-full h-full object-cover" alt="Cover Preview" />
+                      {/* Overlay camera più visibile su iPhone */}
+                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 mb-2">
+                           <i className="fa-solid fa-camera text-xl text-white"></i>
                         </div>
+                        <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] bg-black/40 px-3 py-1 rounded-full">Cambia Foto</span>
                       </div>
-                    ) : (
-                      <div className="text-center">
-                        <i className="fa-solid fa-image text-3xl text-slate-700 mb-2 block"></i>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">Aggiungi foto</p>
+                      <div className="absolute bottom-4 left-4">
+                        <span className="bg-blue-600 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Principale</span>
                       </div>
-                    )}
-                  </div>
-                  <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" accept="image/*" />
+                    </div>
+                  ) : (
+                    <div className="text-center group-hover:scale-105 transition-transform">
+                      <div className="w-14 h-14 rounded-full bg-slate-800/50 border border-slate-700 flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-600 group-hover:border-blue-500 transition-all">
+                        <i className="fa-solid fa-camera text-xl text-slate-500 group-hover:text-white"></i>
+                      </div>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Aggiungi Foto</p>
+                    </div>
+                  )}
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handlePhotoUpload} 
+                  className="hidden" 
+                  accept="image/*" 
+                  capture="environment"
+                />
+                <p className="text-[9px] text-slate-500 italic font-bold text-center">L'album completo potrà essere gestito dalla card della bici dopo il salvataggio.</p>
               </div>
 
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Dettagli Tecnici (Manuali)</h3>
-                <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h3 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em]">Dettagli Tecnici</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {[
                     { id: 'telaio', label: 'Telaio' },
                     { id: 'forcella', label: 'Forcella' },
@@ -360,40 +366,25 @@ const App: React.FC = () => {
                     { id: 'peso', label: 'Peso' },
                   ].map(spec => (
                     <div key={spec.id}>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{spec.label}</label>
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">{spec.label}</label>
                       <input 
                         name={`specs_${spec.id}`} 
-                        defaultValue={(editingBike?.specs as any)?.[spec.id === 'clearance' ? 'clearance_max' : spec.id] || ''}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm outline-none" 
+                        defaultValue={(editingBike?.specs as any)?.[spec.id === 'clearance' ? 'clearance_max' : spec.id] || ''} 
+                        className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-3 text-white text-sm outline-none focus:ring-2 ring-blue-600/50 transition-all" 
                       />
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="pt-4 sticky bottom-0 bg-slate-900 py-4 border-t border-slate-800">
-                <button 
-                  type="submit" 
-                  disabled={isExtracting} 
-                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-900/20 flex items-center justify-center gap-3 transition-all text-lg"
-                >
+              <div className="pt-6 sticky bottom-0 bg-[#0f1421] py-4 border-t border-slate-800/50">
+                <button type="submit" disabled={isExtracting} className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black py-5 rounded-2xl shadow-[0_0_30px_rgba(37,99,235,0.3)] flex items-center justify-center gap-4 transition-all text-base uppercase tracking-[0.1em]">
                   {isExtracting ? (
-                    <>
-                      <i className="fa-solid fa-spinner fa-spin"></i>
-                      <span>{extractionStatus}</span>
-                    </>
+                    <><i className="fa-solid fa-spinner fa-spin"></i><span>{extractionStatus}</span></>
                   ) : (
-                    <>
-                      <i className="fa-solid fa-check"></i>
-                      <span>{editingBike ? 'Salva Modifiche' : 'Crea con Ricerca AI'}</span>
-                    </>
+                    <><i className="fa-solid fa-check"></i><span>{editingBike ? 'Salva Modifiche' : 'Crea Bici'}</span></>
                   )}
                 </button>
-                {!editingBike && (
-                  <p className="text-[10px] text-slate-500 text-center mt-3 font-bold uppercase tracking-tight italic">
-                    L'IA proverà a compilare i dettagli tecnici per te
-                  </p>
-                )}
               </div>
             </form>
           </div>
@@ -401,15 +392,11 @@ const App: React.FC = () => {
       )}
 
       {imageToCrop && (
-        <ImageCropper 
-          image={imageToCrop} 
-          onCropComplete={handleCropComplete} 
-          onCancel={() => setImageToCrop(null)} 
-        />
+        <ImageCropper image={imageToCrop} onCropComplete={handleCropComplete} onCancel={() => setImageToCrop(null)} />
       )}
 
       {activeAnalysis && (
-        <AIVision bikeName={activeAnalysis.name} onClose={() => setActiveAnalysis(null)} />
+        <AIVision bike={activeAnalysis} records={maintenance[activeAnalysis.id] || []} onUpdate={fetchData} onClose={() => setActiveAnalysis(null)} />
       )}
     </Layout>
   );
