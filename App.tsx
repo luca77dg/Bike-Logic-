@@ -5,6 +5,7 @@ import { BikeCard } from './components/BikeCard.tsx';
 import { AIVision } from './components/AIVision.tsx';
 import { ImageCropper } from './components/ImageCropper.tsx';
 import { supabaseService } from './services/supabase.ts';
+import { stravaService } from './services/strava.ts';
 import { extractBikeData } from './services/gemini.ts';
 import { Bike, MaintenanceRecord, BikeType, BikeSpecs } from './types.ts';
 
@@ -21,25 +22,13 @@ const App: React.FC = () => {
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
   const [isCloudEnabled, setIsCloudEnabled] = useState(false);
   
+  // Strava States
+  const [stravaAthlete, setStravaAthlete] = useState<any>(null);
+  const [isStravaConfigured, setIsStravaConfigured] = useState(false);
+
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const checkStatus = useCallback(async () => {
-    setIsCloudEnabled(supabaseService.isConfigured());
-    
-    const envKey = process.env.API_KEY;
-    const isEnvKeyValid = !!(envKey && envKey !== 'undefined' && envKey !== 'null' && envKey.trim() !== '');
-    
-    // @ts-ignore
-    if (window.aistudio?.hasSelectedApiKey) {
-      // @ts-ignore
-      const selected = await window.aistudio.hasSelectedApiKey();
-      setHasApiKey(selected || isEnvKeyValid);
-    } else {
-      setHasApiKey(isEnvKeyValid);
-    }
-  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -58,7 +47,41 @@ const App: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { 
+  const checkStatus = useCallback(async () => {
+    setIsCloudEnabled(supabaseService.isConfigured());
+    setIsStravaConfigured(stravaService.isConfigured());
+    
+    // Check Strava Auth
+    const token = await stravaService.getValidToken();
+    if (token && !stravaAthlete) {
+      const data = await stravaService.getAthleteData();
+      setStravaAthlete(data);
+    }
+
+    const envKey = process.env.API_KEY;
+    const isEnvKeyValid = !!(envKey && envKey !== 'undefined' && envKey !== 'null' && envKey.trim() !== '');
+    
+    // @ts-ignore
+    if (window.aistudio?.hasSelectedApiKey) {
+      // @ts-ignore
+      const selected = await window.aistudio.hasSelectedApiKey();
+      setHasApiKey(selected || isEnvKeyValid);
+    } else {
+      setHasApiKey(isEnvKeyValid);
+    }
+  }, [stravaAthlete]);
+
+  useEffect(() => {
+    // Handle Strava OAuth Redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (code) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      stravaService.exchangeToken(code).then(() => {
+        checkStatus();
+      });
+    }
+
     fetchData();
     checkStatus();
     const interval = setInterval(checkStatus, 5000);
@@ -82,6 +105,7 @@ const App: React.FC = () => {
     
     const formData = new FormData(e.currentTarget);
     const query = (formData.get('query') as string).trim();
+    const stravaId = formData.get('strava_id') as string || null;
     if (!query) return;
 
     const isNew = !editingBike;
@@ -103,12 +127,11 @@ const App: React.FC = () => {
           user_id: '', 
           name: aiResult?.extractedName || query,
           type: (aiResult?.extractedType as BikeType) || (formData.get('type') as BikeType),
-          strava_gear_id: null,
+          strava_gear_id: stravaId,
           total_km: parseFloat(formData.get('km') as string) || 0,
           product_url: formData.get('product_url') as string || "",
           specs: {
             ...(aiResult?.specs || {}),
-            // Override manuali se presenti nel form
             telaio: (formData.get('specs_telaio') as string) || aiResult?.specs?.telaio,
             forcella: (formData.get('specs_forcella') as string) || aiResult?.specs?.forcella,
             gruppo: (formData.get('specs_gruppo') as string) || aiResult?.specs?.gruppo,
@@ -129,6 +152,7 @@ const App: React.FC = () => {
           ...editingBike!,
           name: query,
           type: formData.get('type') as BikeType,
+          strava_gear_id: stravaId,
           total_km: parseFloat(formData.get('km') as string) || 0,
           product_url: formData.get('product_url') as string || "",
           specs: {
@@ -160,6 +184,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handleStravaSync = async (bike: Bike) => {
+    if (!bike.strava_gear_id) return;
+    try {
+      const gear = await stravaService.getGearDetails(bike.strava_gear_id);
+      if (gear && gear.distance) {
+        const km = Math.round(gear.distance / 1000);
+        const updated = { ...bike, total_km: km };
+        await supabaseService.saveBike(updated);
+        fetchData();
+        alert(`Sincronizzati ${km} km da Strava per ${bike.name}`);
+      }
+    } catch (err) {
+      alert("Errore durante la sincronizzazione Strava");
+    }
+  };
+
   return (
     <Layout>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
@@ -169,19 +209,30 @@ const App: React.FC = () => {
             {isCloudEnabled ? (
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full">
                 <span className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
-                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-tighter">Sincronizzazione Cloud Attiva</span>
+                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-tighter">Cloud Active</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full">
                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">Errore Sync: Controlla VITE_ Prefissi</span>
+                <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">Sync Error</span>
               </div>
             )}
-            {hasApiKey && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                <i className="fa-solid fa-brain text-[10px] text-emerald-500"></i>
-                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">AI Ready</span>
-              </div>
+            
+            {isStravaConfigured && (
+              stravaAthlete ? (
+                <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                  <i className="fa-brands fa-strava text-[10px] text-orange-500"></i>
+                  <span className="text-[10px] font-bold text-orange-400 uppercase tracking-tighter">{stravaAthlete.firstname} Linked</span>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => window.location.href = stravaService.getAuthUrl()}
+                  className="flex items-center gap-2 px-3 py-1 bg-slate-800 border border-orange-500/30 rounded-full hover:bg-orange-600 transition-colors group"
+                >
+                  <i className="fa-brands fa-strava text-[10px] text-orange-500 group-hover:text-white"></i>
+                  <span className="text-[10px] font-bold text-slate-400 group-hover:text-white uppercase tracking-tighter">Link Strava</span>
+                </button>
+              )
             )}
           </div>
         </div>
@@ -207,10 +258,14 @@ const App: React.FC = () => {
               onAnalyze={setActiveAnalysis} 
               onEdit={(b) => { setEditingBike(b); setCoverPhoto(b.specs?.imageUrl || null); setShowForm(true); }}
               onUpdateKm={() => {
-                const newKm = prompt("Inserisci i km attuali:", bike.total_km.toString());
-                if (newKm !== null) {
-                  const updated = { ...bike, total_km: parseFloat(newKm) || 0 };
-                  supabaseService.saveBike(updated).then(fetchData);
+                if (bike.strava_gear_id) {
+                  handleStravaSync(bike);
+                } else {
+                  const newKm = prompt("Inserisci i km attuali:", bike.total_km.toString());
+                  if (newKm !== null) {
+                    const updated = { ...bike, total_km: parseFloat(newKm) || 0 };
+                    supabaseService.saveBike(updated).then(fetchData);
+                  }
                 }
               }} 
               onDelete={async (b) => {
@@ -243,7 +298,6 @@ const App: React.FC = () => {
               )}
               
               <div className="space-y-6">
-                {/* Immagine di Copertina */}
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Foto Copertina</label>
                   <div 
@@ -258,11 +312,6 @@ const App: React.FC = () => {
                           <i className="fa-solid fa-camera text-slate-700 group-hover:text-blue-500"></i>
                         </div>
                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest leading-none">Seleziona Immagine</p>
-                      </div>
-                    )}
-                    {coverPhoto && (
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                         <i className="fa-solid fa-rotate text-white text-xl"></i>
                       </div>
                     )}
                   </div>
@@ -289,13 +338,26 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Strava Gear Mapping */}
+                {stravaAthlete && stravaAthlete.bikes && stravaAthlete.bikes.length > 0 && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Collega a Strava</label>
+                    <select name="strava_id" defaultValue={editingBike?.strava_gear_id || ''} className="w-full bg-orange-500/5 border border-orange-500/20 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-orange-500/50 transition-all appearance-none">
+                      <option value="">-- Non collegata --</option>
+                      {stravaAthlete.bikes.map((b: any) => (
+                        <option key={b.id} value={b.id}>{b.name} ({Math.round(b.distance/1000)} km)</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">URL Prodotto (Opzionale)</label>
                   <input name="product_url" defaultValue={editingBike?.product_url || ''} className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-4 text-white outline-none focus:ring-2 ring-blue-600/50 transition-all" placeholder="https://www.specialized.com/..." />
                 </div>
 
                 <div className="pt-6 border-t border-slate-800">
-                  <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-6">Dettagli Tecnici (Manuali o AI)</h3>
+                  <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-6">Dettagli Tecnici</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {[
                       { id: 'telaio', label: 'Telaio' },
@@ -315,7 +377,6 @@ const App: React.FC = () => {
                           name={`specs_${field.id}`} 
                           defaultValue={(editingBike?.specs as any)?.[field.id === 'clearance' ? 'clearance_max' : field.id] || ''} 
                           className="w-full bg-[#161c2d]/50 border border-slate-800 rounded-xl px-4 py-3 text-white text-xs outline-none focus:ring-1 ring-blue-500/30 transition-all"
-                          placeholder={field.label}
                         />
                       </div>
                     ))}

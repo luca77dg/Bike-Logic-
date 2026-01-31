@@ -32,7 +32,6 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
 
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-[2.5rem] overflow-hidden hover:border-blue-500/30 transition-all group relative flex flex-col shadow-xl">
-      {/* Immagine di Anteprima - Aspect Ratio Fisso 16:9 */}
       <div className="aspect-video w-full bg-slate-950 relative overflow-hidden flex items-center justify-center border-b border-slate-800/50">
         {bike.specs?.imageUrl ? (
           <img 
@@ -51,13 +50,11 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
           <span className="bg-blue-600/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full border border-blue-600/30 backdrop-blur-md uppercase tracking-tighter">
             {bike.type}
           </span>
-          <button 
-            onClick={() => setShowAlbum(true)}
-            className="bg-black/40 text-white text-[9px] font-black px-2 py-1 rounded-full border border-white/20 backdrop-blur-md flex items-center gap-1 hover:bg-purple-600/50 transition-colors"
-          >
-            <i className="fa-solid fa-images text-[8px]"></i>
-            {photoCount} Album
-          </button>
+          {bike.strava_gear_id && (
+            <span className="bg-orange-600/20 text-orange-400 text-[10px] font-black px-3 py-1 rounded-full border border-orange-600/30 backdrop-blur-md flex items-center gap-1.5 uppercase tracking-tighter">
+              <i className="fa-brands fa-strava"></i> Linked
+            </span>
+          )}
         </div>
       </div>
 
@@ -110,9 +107,10 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
             </div>
             <button 
               onClick={() => onUpdateKm(bike)}
-              className="h-10 w-10 bg-blue-600 rounded-full text-white hover:bg-blue-500 shadow-lg shadow-blue-900/20 transition-all active:scale-90"
+              className={`h-12 w-12 rounded-full text-white shadow-lg transition-all active:scale-90 flex items-center justify-center ${bike.strava_gear_id ? 'bg-orange-600 hover:bg-orange-500 shadow-orange-900/20' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/20'}`}
+              title={bike.strava_gear_id ? "Sincronizza con Strava" : "Aggiorna km manuale"}
             >
-              <i className="fa-solid fa-rotate"></i>
+              <i className={`fa-solid ${bike.strava_gear_id ? 'fa-arrows-rotate' : 'fa-pen'}`}></i>
             </button>
           </div>
         </div>
