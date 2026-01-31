@@ -34,25 +34,33 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
   const [newLimit, setNewLimit] = useState(3000);
   const [installKm, setInstallKm] = useState(bike.total_km);
   const [newNotes, setNewNotes] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleAddComponent = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRecord: MaintenanceRecord = {
-      id: crypto.randomUUID(),
-      bike_id: bike.id,
-      component_name: newName,
-      km_at_install: installKm,
-      last_check_km: installKm,
-      lifespan_limit: newLimit,
-      notes: newNotes.trim() || undefined
-    };
-    await supabaseService.saveMaintenance(newRecord);
-    setNewName('');
-    setNewLimit(3000);
-    setInstallKm(bike.total_km);
-    setNewNotes('');
-    setIsAdding(false);
-    onUpdate();
+    setIsSaving(true);
+    try {
+      const newRecord: MaintenanceRecord = {
+        id: crypto.randomUUID(),
+        bike_id: bike.id,
+        component_name: newName,
+        km_at_install: installKm,
+        last_check_km: installKm,
+        lifespan_limit: newLimit,
+        notes: newNotes.trim() || undefined
+      };
+      await supabaseService.saveMaintenance(newRecord);
+      setNewName('');
+      setNewLimit(3000);
+      setInstallKm(bike.total_km);
+      setNewNotes('');
+      setIsAdding(false);
+      onUpdate();
+    } catch (err: any) {
+      alert("Errore nel salvataggio. Assicurati di aver aggiornato il database con la colonna 'notes'.\n\nErrore: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const applySuggestion = (suggestion: ComponentSuggestion) => {
@@ -85,12 +93,12 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
 
   const handleDelete = async (id: string) => {
     if (confirm("Rimuovere questo componente dal tracciamento?")) {
-      const data = localStorage.getItem('bikelogic_maintenance');
-      if (data) {
-        const allRecords: MaintenanceRecord[] = JSON.parse(data);
-        localStorage.setItem('bikelogic_maintenance', JSON.stringify(allRecords.filter(r => r.id !== id)));
+      try {
+        await supabaseService.deleteMaintenance(id);
+        onUpdate();
+      } catch (err: any) {
+        alert("Errore nell'eliminazione: " + err.message);
       }
-      onUpdate();
     }
   };
 
@@ -123,6 +131,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                     <button
                       key={idx}
                       type="button"
+                      disabled={isSaving}
                       onClick={() => applySuggestion(suggestion)}
                       className={`px-3 py-2 rounded-xl border text-[10px] font-bold uppercase transition-all flex items-center gap-2 ${
                         newName === suggestion.name 
@@ -144,9 +153,10 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                   <input 
                     autoFocus
                     required
+                    disabled={isSaving}
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all disabled:opacity-50"
                     placeholder="Es: Catena 12v, Pasticche Post..."
                   />
                 </div>
@@ -156,9 +166,10 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                     <input 
                       type="number"
                       required
+                      disabled={isSaving}
                       value={installKm}
                       onChange={(e) => setInstallKm(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all disabled:opacity-50"
                     />
                   </div>
                   <div>
@@ -166,9 +177,10 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                     <input 
                       type="number"
                       required
+                      disabled={isSaving}
                       value={newLimit}
                       onChange={(e) => setNewLimit(parseInt(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -176,15 +188,19 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                   <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Note (Opzionale)</label>
                   <textarea 
                     value={newNotes}
+                    disabled={isSaving}
                     onChange={(e) => setNewNotes(e.target.value)}
                     rows={2}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all resize-none"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all resize-none disabled:opacity-50"
                     placeholder="Es: Shimano Ultegra, montata con grasso al litio..."
                   />
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase hover:text-white transition-colors">Annulla</button>
-                  <button type="submit" className="flex-[2] py-3 bg-blue-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition-all">Aggiungi</button>
+                  <button type="button" disabled={isSaving} onClick={() => setIsAdding(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase hover:text-white transition-colors">Annulla</button>
+                  <button type="submit" disabled={isSaving} className="flex-[2] py-3 bg-blue-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition-all flex items-center justify-center gap-2">
+                    {isSaving ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-check"></i>}
+                    <span>{isSaving ? 'Salvataggio...' : 'Aggiungi'}</span>
+                  </button>
                 </div>
               </form>
             </div>
@@ -201,8 +217,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
           )}
 
           <div className="space-y-4">
-            {records.length > 0 ? records.map(record => {
-              const kmSinceInstall = bike.total_km - record.km_at_install;
+            {records.length > 0 ? records.sort((a,b) => b.km_at_install - a.km_at_install).map(record => {
+              const kmSinceInstall = Math.max(0, bike.total_km - record.km_at_install);
               const wearPercentage = Math.min(Math.round((kmSinceInstall / record.lifespan_limit) * 100), 100);
               const isCritical = wearPercentage > 85;
 
@@ -251,9 +267,9 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                         </p>
                       </div>
                       {record.notes && (
-                        <div className="flex items-start gap-2 mt-1 bg-slate-900/50 p-2 rounded-lg border border-white/5">
-                          <i className="fa-solid fa-note-sticky text-[8px] text-slate-500 mt-0.5"></i>
-                          <p className="text-[10px] text-slate-400 font-medium leading-tight italic break-words">
+                        <div className="flex items-start gap-2 mt-2 bg-black/30 p-2.5 rounded-xl border border-white/5">
+                          <i className="fa-solid fa-note-sticky text-[8px] text-blue-400/60 mt-0.5"></i>
+                          <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic break-words">
                             {record.notes}
                           </p>
                         </div>

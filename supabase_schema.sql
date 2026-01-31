@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- Tabella Bikes aggiornata con supporto a dati complessi (JSONB)
 CREATE TABLE IF NOT EXISTS bikes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL DEFAULT 'default-rider', -- Sostituire con UUID reale se si usa Supabase Auth
+  user_id TEXT NOT NULL DEFAULT 'default-rider',
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('Corsa', 'Gravel', 'MTB')),
   strava_gear_id TEXT,
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS maintenance (
   km_at_install FLOAT NOT NULL DEFAULT 0,
   last_check_km FLOAT NOT NULL DEFAULT 0,
   lifespan_limit FLOAT NOT NULL DEFAULT 2000,
+  notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
