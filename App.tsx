@@ -94,8 +94,10 @@ const App: React.FC = () => {
     } catch (err: any) {
       if (err.message === "ENTITY_NOT_FOUND") {
         setHasApiKey(false);
-        setErrorMessage("Chiave API non valida o non trovata. Riconnetti il profilo.");
+        setErrorMessage("Chiave API non valida. Riconnetti il profilo.");
         handleOpenKeySelector();
+      } else if (err.message === "QUOTA_EXCEEDED") {
+        setErrorMessage("Limite di richieste raggiunto (Quota Esaurita). Attendi 60 secondi o abilita la fatturazione su Google AI Studio.");
       } else {
         setErrorMessage(err.message || "Errore durante la ricerca.");
       }
@@ -168,10 +170,18 @@ const App: React.FC = () => {
             
             <form onSubmit={handleAddBike} className="p-10 space-y-8">
               {errorMessage && (
-                <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-red-400 text-sm font-bold flex gap-4 items-center">
-                  <i className="fa-solid fa-circle-exclamation text-xl"></i>
-                  <span className="flex-1">{errorMessage}</span>
-                  {!hasApiKey && <button type="button" onClick={handleOpenKeySelector} className="underline">Configura</button>}
+                <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-[2rem] text-red-400 text-sm font-bold flex gap-4 items-start">
+                  <i className="fa-solid fa-triangle-exclamation text-xl mt-1"></i>
+                  <div className="flex-1">
+                    <p>{errorMessage}</p>
+                    <a 
+                      href="https://aistudio.google.com/app/apikey" 
+                      target="_blank" 
+                      className="inline-block mt-2 text-xs underline opacity-80"
+                    >
+                      Verifica Quota in AI Studio
+                    </a>
+                  </div>
                 </div>
               )}
 

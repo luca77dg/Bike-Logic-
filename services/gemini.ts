@@ -2,12 +2,12 @@
 import { GoogleGenAI } from "@google/genai";
 
 const VISION_MODEL = 'gemini-2.5-flash-image';
-const SEARCH_MODEL = 'gemini-3-pro-preview';
+// Passiamo a Flash per avere una quota gratuita molto più alta rispetto al Pro
+const SEARCH_MODEL = 'gemini-3-flash-preview';
 
 const VISION_PROMPT = "Analizza questa parte di bicicletta (es. catena, pignoni, pastiglie). Valuta lo stato di usura su una scala da 1 a 10 e scrivi un breve consiglio tecnico in italiano.";
 
 export const extractBikeData = async (query: string, onStatusUpdate?: (status: string) => void) => {
-  // Verifichiamo la chiave ad ogni chiamata come richiesto dalle linee guida
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
     throw new Error("API Key non trovata. Collega la chiave tramite il pulsante in alto.");
@@ -15,7 +15,6 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
 
   try {
     onStatusUpdate?.("Ricerca specifica avanzata...");
-    // Istanza creata subito prima dell'uso
     const ai = new GoogleGenAI({ apiKey });
     
     const prompt = `Trova i dettagli tecnici ufficiali per la bicicletta: "${query}".
@@ -50,7 +49,7 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
     onStatusUpdate?.("Elaborazione dati tecnici...");
     const rawText = response.text || '';
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("L'IA non ha trovato dati validi.");
+    if (!jsonMatch) throw new Error("L'IA non ha trovato dati validi per questo modello.");
     
     const data = JSON.parse(jsonMatch[0]);
     
@@ -64,10 +63,16 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
     return data;
   } catch (error: any) {
     console.error("Gemini Search Error:", error);
-    // Se l'entità non viene trovata, è un problema di configurazione della chiave
+    
+    // Gestione specifica degli errori di quota (429)
+    if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error("QUOTA_EXCEEDED");
+    }
+    
     if (error.message?.includes("Requested entity was not found")) {
       throw new Error("ENTITY_NOT_FOUND");
     }
+    
     throw error;
   }
 };
@@ -88,6 +93,9 @@ export const analyzeBikePart = async (base64Image: string): Promise<string> => {
     });
     return response.text || "Nessun risultato dall'analisi visiva.";
   } catch (error: any) {
+    if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      return "ERRORE: Quota API esaurita. Riprova tra un minuto o controlla il tuo piano su Google AI Studio.";
+    }
     if (error.message?.includes("Requested entity was not found")) {
       return "ERROR:ENTITY_NOT_FOUND";
     }
