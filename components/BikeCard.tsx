@@ -8,9 +8,10 @@ interface BikeCardProps {
   maintenance: MaintenanceRecord[];
   onAnalyze: (bike: Bike) => void;
   onUpdateKm: (bike: Bike) => void;
+  onDelete: (bike: Bike) => void;
 }
 
-export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze, onUpdateKm }) => {
+export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze, onUpdateKm, onDelete }) => {
   const [showSpecs, setShowSpecs] = useState(false);
 
   const getIcon = () => {
@@ -22,7 +23,7 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
   };
 
   return (
-    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all group">
+    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all group relative">
       <div className="p-6">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-3">
@@ -44,12 +45,22 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
               </div>
             </div>
           </div>
-          <button 
-            onClick={() => onUpdateKm(bike)}
-            className="text-slate-400 hover:text-white bg-slate-800 p-2 rounded-lg transition-colors"
-          >
-            <i className="fa-solid fa-arrows-rotate"></i>
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => onUpdateKm(bike)}
+              title="Sincronizza KM"
+              className="text-slate-400 hover:text-white bg-slate-800 p-2 rounded-lg transition-colors"
+            >
+              <i className="fa-solid fa-arrows-rotate"></i>
+            </button>
+            <button 
+              onClick={() => onDelete(bike)}
+              title="Elimina Bici"
+              className="text-slate-500 hover:text-red-400 bg-slate-800 p-2 rounded-lg transition-colors"
+            >
+              <i className="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
         </div>
 
         <div className="mb-6">

@@ -40,7 +40,15 @@ export const supabaseService = {
   },
 
   deleteBike: async (id: string): Promise<void> => {
+    // Rimuovi la bici
     const bikes = await supabaseService.getBikes();
     localStorage.setItem(STORAGE_KEY_BIKES, JSON.stringify(bikes.filter(b => b.id !== id)));
+    
+    // Rimuovi anche le manutenzioni associate (Cascading delete mock)
+    const data = localStorage.getItem(STORAGE_KEY_MAINTENANCE);
+    if (data) {
+      const allRecords: MaintenanceRecord[] = JSON.parse(data);
+      localStorage.setItem(STORAGE_KEY_MAINTENANCE, JSON.stringify(allRecords.filter(m => m.bike_id !== id)));
+    }
   }
 };

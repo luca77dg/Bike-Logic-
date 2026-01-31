@@ -6,7 +6,7 @@ import { AIVision } from './components/AIVision.tsx';
 import { supabaseService } from './services/supabase.ts';
 import { stravaService } from './services/strava.ts';
 import { extractSpecsFromUrl } from './services/gemini.ts';
-import { Bike, MaintenanceRecord } from './types.ts';
+import { Bike, MaintenanceRecord, BikeType } from './types.ts';
 
 const STRAVA_CLIENT_ID = "YOUR_STRAVA_CLIENT_ID";
 const STRAVA_CLIENT_SECRET = "YOUR_STRAVA_CLIENT_SECRET";
@@ -42,28 +42,43 @@ const App: React.FC = () => {
     setBikes(prev => prev.map(b => b.id === bike.id ? updatedBike : b));
   };
 
+  const handleDeleteBike = async (bike: Bike) => {
+    if (window.confirm(`Sei sicuro di voler eliminare la bici "${bike.name}"? Tutti i dati di manutenzione andranno persi.`)) {
+      await supabaseService.deleteBike(bike.id);
+      setBikes(prev => prev.filter(b => b.id !== bike.id));
+      const newMaint = { ...maintenance };
+      delete newMaint[bike.id];
+      setMaintenance(newMaint);
+    }
+  };
+
   const handleAddBike = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const name = formData.get('name') as string;
+    const manualName = formData.get('name') as string;
     const url = formData.get('url') as string;
+    const manualType = formData.get('type') as BikeType;
     
     setIsExtracting(true);
     
-    let specs = undefined;
+    let aiResult = null;
     if (url) {
-      specs = await extractSpecsFromUrl(url, name);
+      aiResult = await extractSpecsFromUrl(url, manualName);
     }
+
+    // Priorità all'AI se il link è fornito, altrimenti usa i dati manuali
+    const finalName = (aiResult?.extractedName && aiResult.extractedName !== "unknown") ? aiResult.extractedName : (manualName || "Bici senza nome");
+    const finalType = (aiResult?.extractedType && ['Corsa', 'Gravel', 'MTB'].includes(aiResult.extractedType)) ? aiResult.extractedType as BikeType : manualType;
 
     const newBike: Bike = {
       id: crypto.randomUUID(),
       user_id: 'current-user',
-      name,
-      type: formData.get('type') as any,
+      name: finalName,
+      type: finalType,
       strava_gear_id: formData.get('gearId') as string,
       total_km: parseFloat(formData.get('km') as string) || 0,
       product_url: url,
-      specs: specs || undefined
+      specs: aiResult?.specs || undefined
     };
     
     await supabaseService.saveBike(newBike);
@@ -125,6 +140,7 @@ const App: React.FC = () => {
               maintenance={maintenance[bike.id] || []}
               onAnalyze={(b) => setActiveAnalysis(b)}
               onUpdateKm={syncKm}
+              onDelete={handleDeleteBike}
             />
           ))}
         </div>
@@ -141,29 +157,35 @@ const App: React.FC = () => {
             </div>
             <form onSubmit={handleAddBike} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Modello Bici</label>
-                <input required name="name" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="Es. Trek Domane AL 4" disabled={isExtracting} />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Link Prodotto (Opzionale)</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Link Prodotto AI</label>
                 <div className="relative">
                   <input name="url" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors pl-10" placeholder="https://www.trekbikes.com/..." disabled={isExtracting} />
-                  <i className="fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                  <i className="fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-500"></i>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1 italic">L'AI estrapolerà telaio, gruppo e ruote dal link fornito.</p>
+                <p className="text-[10px] text-blue-400 mt-1 italic font-medium">✨ Inserisci il link e l'AI configurerà tutto automaticamente!</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Tipo</label>
-                  <select name="type" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 appearance-none" disabled={isExtracting}>
-                    <option value="Corsa">Corsa</option>
-                    <option value="Gravel">Gravel</option>
-                    <option value="MTB">MTB</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">KM Attuali</label>
-                  <input type="number" name="km" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="0" disabled={isExtracting} />
+
+              <div className="border-t border-slate-800 pt-4 opacity-70">
+                <p className="text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-widest">O inserisci manualmente</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Nome (Facoltativo se link presente)</label>
+                    <input name="name" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="Es. My Specialized" disabled={isExtracting} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">Tipo</label>
+                      <select name="type" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 appearance-none" disabled={isExtracting}>
+                        <option value="Corsa">Corsa</option>
+                        <option value="Gravel">Gravel</option>
+                        <option value="MTB">MTB</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-widest">KM Attuali</label>
+                      <input type="number" name="km" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="0" disabled={isExtracting} />
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -174,13 +196,13 @@ const App: React.FC = () => {
               >
                 {isExtracting ? (
                   <>
-                    <i className="fa-solid fa-spinner fa-spin"></i>
-                    AI sta estraendo i dati...
+                    <i className="fa-solid fa-wand-magic-sparkles fa-spin"></i>
+                    AI sta configurando la bici...
                   </>
                 ) : (
                   <>
-                    <i className="fa-solid fa-check"></i>
-                    Salva e Genera Scheda
+                    <i className="fa-solid fa-bicycle"></i>
+                    Configura Bicicletta
                   </>
                 )}
               </button>

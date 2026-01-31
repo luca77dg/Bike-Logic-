@@ -22,22 +22,32 @@ export const analyzeBikePart = async (base64Image: string): Promise<string> => {
   }
 };
 
-export const extractSpecsFromUrl = async (url: string, bikeName: string) => {
+export const extractSpecsFromUrl = async (url: string, manualName?: string) => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-    const prompt = `Analizza il seguente link: ${url}. Estrai la scheda tecnica dettagliata per la bicicletta "${bikeName}". 
-    Se il link non è accessibile direttamente, usa Google Search per trovare le specifiche ufficiali di questo modello. 
+    const prompt = `Analizza il seguente link: ${url}. 
+    Se il link non è accessibile direttamente, usa Google Search per trovare le informazioni ufficiali.
+    
+    DEVI estrarre:
+    1. Il nome commerciale completo della bicicletta.
+    2. Il tipo di bicicletta (DEVE essere uno tra: 'Corsa', 'Gravel', 'MTB').
+    3. La scheda tecnica dettagliata dei componenti.
+
     Restituisci i dati in formato JSON seguendo rigorosamente questo schema:
     {
-      "telaio": "descrizione",
-      "forcella": "descrizione",
-      "gruppo": "nome gruppo (es. Shimano Ultegra Di2)",
-      "cambio": "dettaglio deragliatore",
-      "freni": "tipo e modello freni",
-      "ruote": "modello ruote",
-      "pneumatici": "modello pneumatici",
-      "sella": "modello sella",
-      "peso": "peso dichiarato se disponibile"
+      "extractedName": "Nome completo della bici",
+      "extractedType": "Corsa | Gravel | MTB",
+      "specs": {
+        "telaio": "descrizione",
+        "forcella": "descrizione",
+        "gruppo": "nome gruppo",
+        "cambio": "dettaglio cambio",
+        "freni": "tipo freni",
+        "ruote": "modello ruote",
+        "pneumatici": "modello pneumatici",
+        "sella": "modello sella",
+        "peso": "peso dichiarato"
+      }
     }`;
 
     const response = await ai.models.generateContent({
@@ -49,15 +59,22 @@ export const extractSpecsFromUrl = async (url: string, bikeName: string) => {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            telaio: { type: Type.STRING },
-            forcella: { type: Type.STRING },
-            gruppo: { type: Type.STRING },
-            cambio: { type: Type.STRING },
-            freni: { type: Type.STRING },
-            ruote: { type: Type.STRING },
-            pneumatici: { type: Type.STRING },
-            sella: { type: Type.STRING },
-            peso: { type: Type.STRING }
+            extractedName: { type: Type.STRING },
+            extractedType: { type: Type.STRING },
+            specs: {
+              type: Type.OBJECT,
+              properties: {
+                telaio: { type: Type.STRING },
+                forcella: { type: Type.STRING },
+                gruppo: { type: Type.STRING },
+                cambio: { type: Type.STRING },
+                freni: { type: Type.STRING },
+                ruote: { type: Type.STRING },
+                pneumatici: { type: Type.STRING },
+                sella: { type: Type.STRING },
+                peso: { type: Type.STRING }
+              }
+            }
           }
         }
       }
