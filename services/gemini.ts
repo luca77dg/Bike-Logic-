@@ -7,10 +7,18 @@ const SEARCH_MODEL = 'gemini-3-flash-preview';
 
 const VISION_PROMPT = "Analizza questa parte di bicicletta (es. catena, pignoni, pastiglie). Valuta lo stato di usura su una scala da 1 a 10 e scrivi un breve consiglio tecnico in italiano.";
 
+const getApiKey = () => {
+  const key = process.env.API_KEY;
+  if (!key || key === 'undefined' || key === 'null' || key.trim() === '') {
+    return null;
+  }
+  return key;
+};
+
 export const extractBikeData = async (query: string, onStatusUpdate?: (status: string) => void) => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("API Key non trovata. Collega la chiave tramite il pulsante in alto.");
+    throw new Error("API_KEY_MISSING");
   }
 
   try {
@@ -38,7 +46,6 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
       }
     }`;
 
-    // Always use ai.models.generateContent directly with model name and prompt
     const response = await ai.models.generateContent({
       model: SEARCH_MODEL,
       contents: prompt,
@@ -49,14 +56,12 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
     });
 
     onStatusUpdate?.("Elaborazione dati tecnici...");
-    // Direct access to the .text property
     const rawText = response.text || '';
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("L'IA non ha trovato dati validi per questo modello.");
     
     const data = JSON.parse(jsonMatch[0]);
     
-    // Extracting website URLs from grounding chunks as required for Google Search grounding
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
       ?.map((chunk: any) => ({
         uri: chunk.web?.uri || '',
@@ -68,12 +73,12 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
   } catch (error: any) {
     console.error("Gemini Search Error:", error);
     
-    if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-      throw new Error("QUOTA_EXCEEDED");
-    }
-    
     if (error.message?.includes("Requested entity was not found")) {
       throw new Error("ENTITY_NOT_FOUND");
+    }
+    
+    if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error("QUOTA_EXCEEDED");
     }
     
     throw error;
@@ -81,11 +86,10 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
 };
 
 export const analyzeBikePart = async (base64Image: string): Promise<string> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return "Chiave API mancante.";
+  const apiKey = getApiKey();
+  if (!apiKey) return "Chiave API mancante. Per favore, collegala in alto.";
   try {
     const ai = new GoogleGenAI({ apiKey });
-    // Use gemini-3-flash-preview for vision analysis tasks
     const response = await ai.models.generateContent({
       model: VISION_MODEL,
       contents: {
@@ -102,11 +106,11 @@ export const analyzeBikePart = async (base64Image: string): Promise<string> => {
     });
     return response.text || "Nessun risultato dall'analisi visiva.";
   } catch (error: any) {
-    if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-      return "ERRORE: Quota API esaurita. Riprova tra un minuto o controlla il tuo piano su Google AI Studio.";
-    }
     if (error.message?.includes("Requested entity was not found")) {
       return "ERROR:ENTITY_NOT_FOUND";
+    }
+    if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      return "ERRORE: Quota API esaurita. Riprova tra un minuto.";
     }
     return `Errore Vision: ${error.message}`;
   }

@@ -25,13 +25,17 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkKey = useCallback(async () => {
+    // Verifica se la chiave è valida e non è una stringa di fallback di Vercel
+    const envKey = process.env.API_KEY;
+    const isEnvKeyValid = envKey && envKey !== 'undefined' && envKey !== 'null' && envKey.trim() !== '';
+    
     // @ts-ignore
     if (window.aistudio?.hasSelectedApiKey) {
       // @ts-ignore
       const selected = await window.aistudio.hasSelectedApiKey();
-      setHasApiKey(selected || !!process.env.API_KEY);
+      setHasApiKey(selected || isEnvKeyValid);
     } else {
-      setHasApiKey(!!process.env.API_KEY);
+      setHasApiKey(isEnvKeyValid);
     }
   }, []);
 
@@ -50,7 +54,7 @@ const App: React.FC = () => {
   useEffect(() => { 
     fetchData();
     checkKey();
-    const interval = setInterval(checkKey, 3000);
+    const interval = setInterval(checkKey, 2000);
     return () => clearInterval(interval);
   }, [fetchData, checkKey]);
 
@@ -60,10 +64,11 @@ const App: React.FC = () => {
       if (window.aistudio?.openSelectKey) {
         // @ts-ignore
         await window.aistudio.openSelectKey();
+        // Assumiamo successo immediato per mitigare race conditions
         setHasApiKey(true);
         setErrorMessage(null);
       } else {
-        alert("Configura la variabile API_KEY nelle impostazioni del tuo progetto Vercel.");
+        alert("Configura la variabile API_KEY nelle impostazioni del tuo progetto Vercel (Environment Variables) e ri-esegui il deploy.");
       }
     } catch (e) {
       console.error("Errore selettore:", e);
@@ -96,7 +101,6 @@ const App: React.FC = () => {
 
     const isNew = !editingBike;
     
-    // Prepariamo l'oggetto base
     const bikeSpecs: BikeSpecs = {
       telaio: formData.get('specs_telaio') as string,
       forcella: formData.get('specs_forcella') as string,
@@ -116,7 +120,11 @@ const App: React.FC = () => {
         let aiResult = null;
         try {
           aiResult = await extractBikeData(query, setExtractionStatus);
-        } catch (err) {
+        } catch (err: any) {
+          if (err.message === "API_KEY_MISSING" || err.message === "ENTITY_NOT_FOUND") {
+            handleError(err);
+            return;
+          }
           console.warn("AI extraction failed, proceeding with manual entry", err);
         }
         
@@ -141,7 +149,6 @@ const App: React.FC = () => {
         setIsExtracting(false);
       }
     } else {
-      // Update esistente
       const updatedBike: Bike = {
         ...editingBike!,
         name: query,
@@ -163,12 +170,12 @@ const App: React.FC = () => {
   };
 
   const handleError = (err: any) => {
-    if (err.message === "ENTITY_NOT_FOUND") {
+    if (err.message === "ENTITY_NOT_FOUND" || err.message === "API_KEY_MISSING") {
       setHasApiKey(false);
-      setErrorMessage("Chiave API non valida. Riconnetti il profilo.");
+      setErrorMessage("La chiave API è mancante o non valida. Clicca 'Collega API' in alto.");
       handleOpenKeySelector();
     } else if (err.message === "QUOTA_EXCEEDED") {
-      setErrorMessage("Limite di richieste raggiunto (Quota Esaurita).");
+      setErrorMessage("Limite di richieste raggiunto (Quota Esaurita). Riprova tra poco.");
     } else {
       setErrorMessage(err.message || "Errore durante il salvataggio.");
     }
@@ -193,10 +200,18 @@ const App: React.FC = () => {
       <div className="flex justify-between items-center mb-10">
         <div>
           <h2 className="text-3xl font-black text-white">Il Tuo Garage</h2>
-          {!hasApiKey && (
-            <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full w-fit">
+          {!hasApiKey ? (
+            <button 
+              onClick={handleOpenKeySelector}
+              className="flex items-center gap-2 mt-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full w-fit hover:bg-red-500/20 transition-all group"
+            >
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-              <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">AI non connessa</span>
+              <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter group-hover:underline">AI non connessa (Clicca qui)</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full w-fit">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">AI Online</span>
             </div>
           )}
         </div>
@@ -265,7 +280,6 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* SEZIONE BASE */}
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Informazioni Base</h3>
                 <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50 space-y-6">
@@ -307,7 +321,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* SEZIONE FOTO */}
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Foto</h3>
                 <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50">
@@ -333,7 +346,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* SEZIONE SPECS TECNICHE */}
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Dettagli Tecnici (Manuali)</h3>
                 <div className="p-6 bg-slate-800/40 rounded-3xl border border-slate-700/50 grid grid-cols-1 md:grid-cols-2 gap-4">
