@@ -1,16 +1,21 @@
 
--- Create bikes table
+-- Estensione per UUID se non presente
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Tabella Bikes aggiornata con supporto a dati complessi (JSONB)
 CREATE TABLE IF NOT EXISTS bikes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
+  user_id TEXT NOT NULL DEFAULT 'default-rider', -- Sostituire con UUID reale se si usa Supabase Auth
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('Corsa', 'Gravel', 'MTB')),
   strava_gear_id TEXT,
   total_km FLOAT DEFAULT 0,
+  product_url TEXT,
+  specs JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create maintenance table
+-- Tabella Maintenance per il tracciamento dei componenti
 CREATE TABLE IF NOT EXISTS maintenance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bike_id UUID REFERENCES bikes(id) ON DELETE CASCADE,
@@ -21,6 +26,6 @@ CREATE TABLE IF NOT EXISTS maintenance (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS (Optional but recommended)
--- ALTER TABLE bikes ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
+-- Indici per performance
+CREATE INDEX IF NOT EXISTS idx_maintenance_bike_id ON maintenance(bike_id);
+CREATE INDEX IF NOT EXISTS idx_bikes_user_id ON bikes(user_id);
