@@ -88,7 +88,6 @@ const App: React.FC = () => {
         setStravaAthlete(data);
         if (shouldSync) {
           setIsSyncing(true);
-          // Usiamo le bici correnti dallo stato o caricate
           const currentBikes = await supabaseService.getBikes();
           await syncBikesWithStrava(currentBikes, data);
           setIsSyncing(false);
@@ -112,11 +111,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       const initialBikes = await fetchData();
-      // Al primo avvio, forziamo un check dei km
       await checkStatus(true);
     };
 
-    // Gestione OAuth redirect
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code) {
@@ -128,7 +125,6 @@ const App: React.FC = () => {
       init();
     }
 
-    // Check periodico ogni 5 minuti (300000ms) per nuovi km se l'app resta aperta
     const interval = setInterval(() => checkStatus(true), 300000);
     return () => clearInterval(interval);
   }, [fetchData, checkStatus]);
@@ -252,25 +248,40 @@ const App: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
         <div>
           <h2 className="text-3xl font-black text-white">Il Tuo Garage</h2>
-          <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-3">
+            {/* Status Cloud */}
             {isCloudEnabled ? (
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full">
-                <span className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
-                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-tighter">Cloud Active</span>
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
+                <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Cloud Sync</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">Sync Error</span>
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                <span className="text-[9px] font-black text-red-400 uppercase tracking-widest">Sync Error</span>
+              </div>
+            )}
+
+            {/* Status AI */}
+            {hasApiKey ? (
+              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                <i className="fa-solid fa-wand-magic-sparkles text-[9px] text-emerald-500"></i>
+                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">AI Ready</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-1 bg-slate-500/10 border border-slate-500/20 rounded-full opacity-50">
+                <i className="fa-solid fa-brain text-[9px] text-slate-500"></i>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">AI Offline</span>
               </div>
             )}
             
+            {/* Status Strava */}
             {isStravaConfigured && (
               stravaAthlete ? (
                 <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full relative overflow-hidden">
-                  <i className="fa-brands fa-strava text-[10px] text-orange-500"></i>
-                  <span className="text-[10px] font-bold text-orange-400 uppercase tracking-tighter">
-                    {stravaAthlete.firstname} {isSyncing ? '• Syncing...' : 'Linked'}
+                  <i className="fa-brands fa-strava text-[9px] text-orange-500"></i>
+                  <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest">
+                    {stravaAthlete.firstname} {isSyncing ? '• Sync...' : 'Linked'}
                   </span>
                   {isSyncing && <div className="absolute inset-0 bg-orange-500/5 animate-pulse"></div>}
                 </div>
@@ -279,8 +290,8 @@ const App: React.FC = () => {
                   onClick={() => window.location.href = stravaService.getAuthUrl()}
                   className="flex items-center gap-2 px-3 py-1 bg-slate-800 border border-orange-500/30 rounded-full hover:bg-orange-600 transition-colors group"
                 >
-                  <i className="fa-brands fa-strava text-[10px] text-orange-500 group-hover:text-white"></i>
-                  <span className="text-[10px] font-bold text-slate-400 group-hover:text-white uppercase tracking-tighter">Link Strava</span>
+                  <i className="fa-brands fa-strava text-[9px] text-orange-500 group-hover:text-white"></i>
+                  <span className="text-[9px] font-black text-slate-400 group-hover:text-white uppercase tracking-widest">Link Strava</span>
                 </button>
               )
             )}
