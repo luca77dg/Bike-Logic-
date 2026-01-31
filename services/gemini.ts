@@ -6,8 +6,13 @@ const SEARCH_MODEL = 'gemini-3-pro-preview';
 
 const VISION_PROMPT = "Analizza questa parte di bicicletta (es. catena, pignoni, pastiglie). Valuta lo stato di usura su una scala da 1 a 10 e scrivi un breve consiglio tecnico in italiano.";
 
+const getApiKey = () => {
+  // @ts-ignore
+  return process.env.API_KEY || window.process?.env?.API_KEY || "";
+};
+
 export const testAiConnection = async (): Promise<{success: boolean, message: string}> => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) return { success: false, message: "ERRORE: Variabile API_KEY non trovata. Controlla Vercel." };
   
   try {
@@ -23,7 +28,7 @@ export const testAiConnection = async (): Promise<{success: boolean, message: st
 };
 
 export const analyzeBikePart = async (base64Image: string): Promise<string> => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) return "Chiave mancante.";
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -43,7 +48,7 @@ export const analyzeBikePart = async (base64Image: string): Promise<string> => {
 };
 
 export const extractBikeData = async (query: string, onStatusUpdate?: (status: string) => void) => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
     console.error("API_KEY missing");
     return null;
@@ -53,7 +58,6 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
     onStatusUpdate?.("Ricerca specifica in corso...");
     const ai = new GoogleGenAI({ apiKey });
     
-    // Prompt super-strutturato per evitare errori di parsing
     const prompt = `Trova i dettagli tecnici per la bicicletta: ${query}. 
     Rispondi esclusivamente con un oggetto JSON valido (senza markdown) che contenga:
     {
@@ -83,7 +87,6 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
     
     const data = JSON.parse(jsonMatch[0]);
     
-    // Aggiungiamo le fonti per verifica
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
       ?.map((chunk: any) => ({
         uri: chunk.web?.uri || '',

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { analyzeBikePart } from '../services/gemini';
+import { analyzeBikePart } from '../services/gemini.ts';
 
 interface AIVisionProps {
   bikeName: string;
@@ -28,9 +28,14 @@ export const AIVision: React.FC<AIVisionProps> = ({ bikeName, onClose }) => {
   const handleAnalyze = async () => {
     if (!image) return;
     setAnalyzing(true);
-    const analysis = await analyzeBikePart(image);
-    setResult(analysis);
-    setAnalyzing(false);
+    try {
+      const analysis = await analyzeBikePart(image);
+      setResult(analysis);
+    } catch (error) {
+      setResult("Errore durante l'analisi dell'immagine.");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   return (
