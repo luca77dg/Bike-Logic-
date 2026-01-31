@@ -7,22 +7,20 @@ const SEARCH_MODEL = 'gemini-3-pro-preview';
 const VISION_PROMPT = "Analizza questa parte di bicicletta (es. catena, pignoni, pastiglie). Valuta lo stato di usura su una scala da 1 a 10 e scrivi un breve consiglio tecnico in italiano.";
 
 export const extractBikeData = async (query: string, onStatusUpdate?: (status: string) => void) => {
+  // Verifichiamo la chiave ad ogni chiamata come richiesto dalle linee guida
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("API Key non trovata. Per favore clicca su 'Collega API' in alto.");
+    throw new Error("API Key non trovata. Collega la chiave tramite il pulsante in alto.");
   }
 
   try {
     onStatusUpdate?.("Ricerca specifica avanzata...");
+    // Istanza creata subito prima dell'uso
     const ai = new GoogleGenAI({ apiKey });
     
     const prompt = `Trova i dettagli tecnici ufficiali per la bicicletta: "${query}".
-    
     DEVI rispondere esclusivamente con un oggetto JSON. 
-    Cerca con estrema attenzione:
-    1. Il modello di pneumatici di serie montati dal produttore.
-    2. Il "tire clearance" (passaggio ruota) massimo supportato dal telaio (es. "fino a 700x45c" o "fino a 2.4 pollici").
-    3. Un URL di un'immagine ufficiale (JPG/PNG) del modello se disponibile nei risultati di ricerca.
+    Includi modello pneumatici di serie, tire clearance massimo e URL immagine ufficiale.
 
     Struttura JSON:
     {
@@ -52,7 +50,7 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
     onStatusUpdate?.("Elaborazione dati tecnici...");
     const rawText = response.text || '';
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("L'IA non ha trovato dati validi per questo modello.");
+    if (!jsonMatch) throw new Error("L'IA non ha trovato dati validi.");
     
     const data = JSON.parse(jsonMatch[0]);
     
@@ -65,8 +63,10 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
     if (data.specs) data.specs.sources = sources;
     return data;
   } catch (error: any) {
-    if (error.message?.includes("entity was not found")) {
-      throw new Error("Errore progetto: La chiave API non è collegata a un progetto con fatturazione attiva o Google Search abilitato.");
+    console.error("Gemini Search Error:", error);
+    // Se l'entità non viene trovata, è un problema di configurazione della chiave
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("ENTITY_NOT_FOUND");
     }
     throw error;
   }
@@ -88,6 +88,9 @@ export const analyzeBikePart = async (base64Image: string): Promise<string> => {
     });
     return response.text || "Nessun risultato dall'analisi visiva.";
   } catch (error: any) {
+    if (error.message?.includes("Requested entity was not found")) {
+      return "ERROR:ENTITY_NOT_FOUND";
+    }
     return `Errore Vision: ${error.message}`;
   }
 };

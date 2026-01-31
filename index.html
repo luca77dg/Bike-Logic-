@@ -8,19 +8,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <script>
-      // Shim globale - Inizializza process.env solo se non esiste, preservando variabili iniettate
-      window.process = window.process || { env: { NODE_ENV: 'production' } };
+      // Shim globale robusto
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
       window.global = window;
-
-      window.addEventListener('error', (event) => {
-        if (event.message.includes('import')) {
-          const root = document.getElementById('root');
-          if (root) root.innerHTML = `<div style="padding: 20px; color: #f87171; font-family: sans-serif;">
-            <h1 style="font-size: 20px; font-weight: bold;">Errore di Caricamento Moduli</h1>
-            <p style="color: #94a3b8; margin-top: 10px;">${event.message}</p>
-          </div>`;
-        }
-      });
     </script>
     <script type="importmap">
 {
@@ -38,7 +29,7 @@
     <style>
       body { background-color: #020617; margin: 0; }
       #root:empty::before {
-        content: "BikeLogic AI: Inizializzazione...";
+        content: "BikeLogic AI: Caricamento...";
         display: flex;
         justify-content: center;
         align-items: center;
