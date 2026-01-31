@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Bike, MaintenanceRecord } from '../types.ts';
+import { BikeSpecsModal } from './BikeSpecs.tsx';
 
 interface BikeCardProps {
   bike: Bike;
@@ -10,6 +11,8 @@ interface BikeCardProps {
 }
 
 export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze, onUpdateKm }) => {
+  const [showSpecs, setShowSpecs] = useState(false);
+
   const getIcon = () => {
     switch(bike.type) {
       case 'MTB': return 'fa-mountain-sun';
@@ -28,7 +31,17 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">{bike.name}</h3>
-              <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">{bike.type}</span>
+              <div className="flex gap-2 items-center">
+                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{bike.type}</span>
+                {bike.specs && (
+                   <button 
+                    onClick={() => setShowSpecs(true)}
+                    className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold hover:bg-blue-500/20"
+                   >
+                     SCHEDA TECNICA
+                   </button>
+                )}
+              </div>
             </div>
           </div>
           <button 
@@ -71,9 +84,6 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
               </div>
             );
           })}
-          {maintenance.length === 0 && (
-             <p className="text-slate-600 text-xs italic">Nessun componente tracciato</p>
-          )}
         </div>
 
         <button 
@@ -84,6 +94,10 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
           AI Vision Analysis
         </button>
       </div>
+
+      {showSpecs && bike.specs && (
+        <BikeSpecsModal specs={bike.specs} onClose={() => setShowSpecs(false)} />
+      )}
     </div>
   );
 };

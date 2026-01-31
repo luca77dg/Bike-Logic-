@@ -1,6 +1,18 @@
 
 export type BikeType = 'Corsa' | 'Gravel' | 'MTB';
 
+export interface BikeSpecs {
+  telaio?: string;
+  forcella?: string;
+  gruppo?: string;
+  cambio?: string;
+  freni?: string;
+  ruote?: string;
+  pneumatici?: string;
+  sella?: string;
+  peso?: string;
+}
+
 export interface Bike {
   id: string;
   user_id: string;
@@ -8,6 +20,8 @@ export interface Bike {
   type: BikeType;
   strava_gear_id: string | null;
   total_km: number;
+  specs?: BikeSpecs;
+  product_url?: string;
 }
 
 export interface MaintenanceRecord {
