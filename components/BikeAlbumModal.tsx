@@ -16,26 +16,73 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
   
   const photos = bike.specs?.photos || [];
 
+  // Utility per comprimere l'immagine prima del salvataggio
+  const compressImage = (base64: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          // Convertiamo in JPEG con qualità 0.7 per un ottimo bilanciamento peso/qualità
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        } else {
+          resolve(base64);
+        }
+      };
+      img.src = base64;
+    });
+  };
+
   const handleAddPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setIsUploading(true);
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        const updatedBike: Bike = {
-          ...bike,
-          specs: {
-            ...bike.specs,
-            photos: [...(bike.specs?.photos || []), base64]
+        try {
+          const rawBase64 = reader.result as string;
+          // Compressione critica per iPhone (evita errori di dimensione su foto da 12MP)
+          const optimizedBase64 = await compressImage(rawBase64);
+          
+          const updatedBike: Bike = {
+            ...bike,
+            specs: {
+              ...bike.specs,
+              photos: [...(bike.specs?.photos || []), optimizedBase64]
+            }
+          };
+          await supabaseService.saveBike(updatedBike);
+          onUpdate();
+          setActivePhoto((bike.specs?.photos?.length || 0));
+        } catch (err) {
+          console.error("Upload Error:", err);
+          alert("Errore nel caricamento della foto. Riprova con un'altra immagine.");
+        } finally {
+          setIsUploading(false);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
           }
-        };
-        await supabaseService.saveBike(updatedBike);
-        onUpdate();
-        setActivePhoto((bike.specs?.photos?.length || 0));
-        setIsUploading(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
         }
       };
       reader.readAsDataURL(file);
@@ -62,7 +109,7 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
       <div className="bg-[#0f1421] border border-slate-800 w-full max-w-4xl rounded-[3rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in duration-300">
         
-        {/* Header pulito senza pulsanti fotografici */}
+        {/* Header pulito */}
         <div className="p-6 sm:p-8 border-b border-slate-800 flex justify-between items-center bg-[#13192a] shrink-0">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-purple-600/20 flex items-center justify-center border border-purple-600/30">
@@ -122,8 +169,8 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
                   <i className="fa-solid fa-images text-4xl text-slate-700"></i>
                 </div>
                 <h3 className="text-white font-black text-lg uppercase tracking-widest mb-3">Album ancora vuoto</h3>
-                <p className="text-slate-500 font-bold text-xs uppercase tracking-widest leading-relaxed">
-                  Trascina qui i tuoi scatti o usa <br/> il tasto sotto per iniziare.
+                <p className="text-slate-500 font-bold text-xs uppercase tracking-widest leading-relaxed text-center">
+                  Scatta una foto o caricala <br className="hidden sm:block"/> dalla tua libreria.
                 </p>
                 <button 
                   onClick={() => fileInputRef.current?.click()}
@@ -138,7 +185,7 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
             {isUploading && (
               <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center z-10">
                 <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin mb-6"></div>
-                <p className="text-white font-black text-xs uppercase tracking-[0.4em] animate-pulse">Salvataggio...</p>
+                <p className="text-white font-black text-[10px] uppercase tracking-[0.4em] animate-pulse">Ottimizzazione...</p>
               </div>
             )}
           </div>
@@ -151,7 +198,7 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
               <div className="w-10 h-10 rounded-full bg-purple-600/20 flex items-center justify-center mb-1 group-hover:bg-purple-600 transition-all">
                 <i className="fa-solid fa-plus text-purple-400 group-hover:text-white text-xs"></i>
               </div>
-              <span className="text-[8px] font-black uppercase text-purple-400 tracking-widest">Aggiungi</span>
+              <span className="text-[8px] font-black uppercase text-purple-400 tracking-widest">Nuova</span>
             </button>
             
             <input 
