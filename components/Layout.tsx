@@ -7,19 +7,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <header className="flex items-center justify-between mb-10">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-[#0e4d7d] rounded-2xl shadow-xl shadow-blue-900/30 border border-white/10 flex items-center justify-center shrink-0">
-            {/* Logo BikeLogic AI - Minimalist Edition */}
-            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-9">
-              {/* Gear Ring - Bold & Simple */}
-              <circle cx="50" cy="50" r="38" stroke="white" strokeWidth="12"/>
-              {/* Precision Teeth - 4 points for clarity */}
-              <rect x="44" y="0" width="12" height="15" fill="white" rx="2"/>
-              <rect x="44" y="85" width="12" height="15" fill="white" rx="2"/>
-              <rect x="0" y="44" width="15" height="12" fill="white" rx="2"/>
-              <rect x="85" y="44" width="15" height="12" fill="white" rx="2"/>
-              {/* Minimalist Bike Symbol */}
-              <circle cx="35" cy="55" r="10" stroke="white" strokeWidth="6"/>
-              <circle cx="65" cy="55" r="10" stroke="white" strokeWidth="6"/>
-              <path d="M35 55L50 40H65L65 55" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+            {/* Logo BikeLogic AI - Pure Minimalist Bike */}
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-10 h-10">
+              {/* Rear Wheel */}
+              <circle cx="30" cy="65" r="16" stroke="white" strokeWidth="12"/>
+              {/* Front Wheel */}
+              <circle cx="70" cy="65" r="16" stroke="white" strokeWidth="12"/>
+              {/* Frame & Handlebar - Simplified Bold Lines */}
+              <path d="M30 65L46 38H62L70 65" stroke="white" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M62 38L68 25H78" stroke="white" strokeWidth="12" strokeLinecap="round"/>
             </svg>
           </div>
           <div>
