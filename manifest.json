@@ -1,0 +1,17 @@
+
+{
+  "name": "BikeLogic AI",
+  "short_name": "BikeLogic",
+  "description": "Smart bike maintenance manager with AI analysis",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE5MiIgaGVpZ2h0PSIxOTIiIHJ4PSI0MCIgZmlsbD0iIzI1NjNlYiIvPjxwYXRoIGQ9Ik00MCAxMTBhMjAgMjAgMCAxIDAgNDAgMCAyMCAyMCAwIDEgMC00MCAwem04MCAwYTIuNSAyLjUgMCAxIDAgNDAgMCAyMCAyMCAwIDEgMC00MCAwem0tMTUgMjVsLTE1IDI1bS0xNSA3MGwzMCAwbTE1IDcwbDE1IDMwIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
