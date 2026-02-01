@@ -11,15 +11,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BikeLogic AI">
     
-    <!-- Theme Color per barra di stato -->
+    <!-- Theme Color -->
     <meta name="theme-color" content="#020617">
     
-    <!-- Apple Touch Icon Ottimizzata (Design con Safe Zone per evitare tagli) -->
-    <!-- Nota: rimosso rx="40" per permettere a iOS di gestire la maschera correttamente -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJncmFkIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMTA0ZTZlO3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzA3MzU1MDtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsbD0idXJsKCNncmFkKSIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkwLCA5MCkgc2NhbGUoMC44KSI+PHBhdGggZD0iTTUwLjkzIDkuOTZsLTguNy01LjAyYTIuNDggMi40OCAwIDAgMS0uOTMtMy40NEw0My41IDBsLTkuOTYtNS43NS0yLjI0IDMuODhhMi40OCAyLjQ4IDAgMCAxLTMuNDQuOTNsLTguNy01LjAyYTIuNDggMi40OCAwIDAgMS0uOTMtMy40NEwyMC40LTEzLjY4bC05Ljk2LTUuNzUtMi4yNCAzLjg4YTIuNDggMi40OCAwIDAgMS0zLjQ0LjkzbC04LjctNS4wMmEyLjQ4IDIuNDggMCAwIDEtLjkzLTMuNDRMLTIuNy0yNy4zNmwtOS45Ni01Ljc1LTIuMjQgMy44OGEyLjQ4IDIuNDggMCAwIDEtMy40NC45M2wtOC43LTUuMDJhMi40OCAyLjQ4IDAgMCAxLS45My0zLjQ0TDAtNDFsLTkuOTYtNS43NS0yLjI0IDMuODhhMi40OCAyLjQ4IDAgMCAxLTMuNDQuOTNsLTguNy01LjAyYTIuNDggMi40OCAwIDAgMS0uOTMtMy40NEwtNDEuMDYtMTMuNjhsLTkuOTYtNS43NS0yLjI0IDMuODhhMi40OCAyLjQ4IDAgMCAxLTMuNDQuOTNsLTguNy01LjAyYTIuNDggMi40OCAwIDAgMS0uOTMtMy40NEwtNTAuNzQgMGwtOS45NiA1Ljc1IDIsMiA2MCw2MFoiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSByPSI2MCIgZmlsbD0idXJsKCNncmFkKSIvPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYX09InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiB0cmFuc2Zvcm09InNjYWxlKDIuNSkgdHJhbnNsYXRlKC0xNSwgLTI0KSI+PHBhdGggZD0iTTQgMTVIMTRMMTIgMTdIOEw0IDE1Wk00IDE1QTIuNSAyLjUgMCAxIDAgOSAxNU0yMiAxNUEyLjUgMi41IDAgMSAwIDI3IDE1TTExIDhIMTRMMTcgMTJNMTMgOEwxMCAxNU0xNCA4TDE4IDE1Ii8+PC9nPjwvZz48L3N2Zz4=">
+    <!-- NUOVA ICONA OTTIMIZZATA (Design: Ingranaggio + Bici con Safe Zone 30%) -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjE4MCIgaGVpZ2h0PSIxODAiIGZpbGw9IiMwMjA2MTciLz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5MCwgOTApIHNjYWxlKDAuNjUpIj4KICAgIDwhLS0gSW5ncmFuYWdnaW8gLS0+CiAgICA8cGF0aCBkPSJNMCA0NUwtMTAgNjBMMTAgNjBMMC00NUwtMTAtNjBMMTAgLTYwWiIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0icm90YXRlKDApIi8+CiAgICA8cGF0aCBkPSJNMCA0NUwtMTAgNjBMMTAgNjBMMC00NUwtMTAtNjBMMTAgLTYwWiIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0icm90YXRlKDQ1KSIvPgogICAgPHBhdGggZD0iTTAgNDVMLTEwIDYwTDEwIDYwTDAtNDVMLTEwIC02MEwxMCAtNjBaIiBmaWxsPSJ3aGl0ZSIgdHJhbnNmb3JtPSJyb3RhdGUoOTApIi8+CiAgICA8cGF0aCBkPSJNMCA0NUwtMTAgNjBMMTAgNjBMMC00NUwtMTAtNjBMMTAgLTYwWiIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0icm90YXRlKDEzNSkiLz4KICAgIDxjaXJjbGUgcj0iNDUiIGZpbGw9IiMwMjA2MTciLz4KICAgIDxjaXJjbGUgcj0iNDAiIGZpbGw9IiMwNzM1NTAiLz4KICAgIDwhLS0gQmljaSAtLT4KICAgIDxnIHRyYW5zZm9ybT0ic2NhbGUoMykgdHJhbnNsYXRlKC04LCAtNykiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMS4yIiBzdHJva2UtbGluZWNhcD0icm91bmQiPgogICAgICA8Y2lyY2xlIGN4PSI0LjUiIGN5PSIxMSIgcj0iMiIvPgogICAgICA8Y2lyY2xlIGN4PSIxMS41IiBjeT0iMTEiIHI9IjIiLz48cGF0aCBkPSJNOSA2TDcgMTFNMTEgNkwxMyAxMU03IDExTDUgMTFNNiAxMUw4IDZMMTAgNiIvPgogICAgPC9nPgogIDwvZz4KPC9zdmc+">
     
-    <!-- Percorso relativo per evitare errori di routing Vercel -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json?v=2">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -41,7 +39,6 @@
   }
 }
 </script>
-    <!-- Caricamento tramite percorso relativo per compatibilità PWA -->
     <script type="module" src="index.tsx"></script>
     <style>
       body { 
@@ -70,7 +67,6 @@
       .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
       
-      /* Ottimizzazione per notch iPhone e iPad Pro */
       body {
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
