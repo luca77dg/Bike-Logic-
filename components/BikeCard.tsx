@@ -28,7 +28,12 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
     }
   };
 
-  const photoCount = bike.specs?.photos?.length || 0;
+  // Logica di ordinamento: dal componente più usurato al meno usurato
+  const sortedMaintenance = [...maintenance].sort((a, b) => {
+    const wearA = (bike.total_km - a.km_at_install) / a.lifespan_limit;
+    const wearB = (bike.total_km - b.km_at_install) / b.lifespan_limit;
+    return wearB - wearA;
+  });
 
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-[2.5rem] overflow-hidden hover:border-blue-500/30 transition-all group relative flex flex-col shadow-xl">
@@ -126,28 +131,30 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
             </button>
           </div>
           
-          {maintenance.length > 0 ? maintenance.slice(0, 3).map(item => {
-            const kmSinceInstall = bike.total_km - item.km_at_install;
-            const wearPercentage = Math.min(Math.round((kmSinceInstall / item.lifespan_limit) * 100), 100);
-            const isCritical = wearPercentage > 85;
-            
-            return (
-              <div key={item.id} className="group/item">
-                <div className="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-tight">
-                  <span className="text-slate-300">{item.component_name}</span>
-                  <span className={`${isCritical ? 'text-red-400' : 'text-blue-400'}`}>{wearPercentage}%</span>
+          <div className="max-h-[220px] overflow-y-auto custom-scrollbar pr-2 space-y-4">
+            {sortedMaintenance.length > 0 ? sortedMaintenance.map(item => {
+              const kmSinceInstall = Math.max(0, bike.total_km - item.km_at_install);
+              const wearPercentage = Math.min(Math.round((kmSinceInstall / item.lifespan_limit) * 100), 100);
+              const isCritical = wearPercentage > 85;
+              
+              return (
+                <div key={item.id} className="group/item">
+                  <div className="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-tight">
+                    <span className="text-slate-300 truncate mr-2">{item.component_name}</span>
+                    <span className={`${isCritical ? 'text-red-400' : 'text-blue-400'} shrink-0`}>{wearPercentage}%</span>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(59,130,246,0.3)] ${isCritical ? 'bg-gradient-to-r from-red-600 to-orange-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`} 
+                      style={{ width: `${wearPercentage}%` }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(59,130,246,0.3)] ${isCritical ? 'bg-gradient-to-r from-red-600 to-orange-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`} 
-                    style={{ width: `${wearPercentage}%` }}
-                  ></div>
-                </div>
-              </div>
-            );
-          }) : (
-            <p className="text-xs text-slate-600 font-bold italic">Nessun componente tracciato</p>
-          )}
+              );
+            }) : (
+              <p className="text-xs text-slate-600 font-bold italic py-2">Nessun componente tracciato</p>
+            )}
+          </div>
         </div>
 
         <button 
