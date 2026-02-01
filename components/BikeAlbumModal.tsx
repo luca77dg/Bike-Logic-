@@ -62,7 +62,7 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
       <div className="bg-[#0f1421] border border-slate-800 w-full max-w-4xl rounded-[3rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in duration-300">
         
-        {/* Header con Pulsante Fotocamera Persistente */}
+        {/* Header con pulsante di chiusura */}
         <div className="p-6 sm:p-8 border-b border-slate-800 flex justify-between items-center bg-[#13192a] shrink-0">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-purple-600/20 flex items-center justify-center border border-purple-600/30">
@@ -75,14 +75,6 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Pulsante Camera in alto a destra per iPhone */}
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-purple-600 hover:bg-purple-500 text-white h-12 px-5 rounded-2xl flex items-center gap-2 transition-all shadow-lg shadow-purple-900/20"
-            >
-              <i className="fa-solid fa-camera text-sm"></i>
-              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Scatta</span>
-            </button>
             <button onClick={onClose} className="bg-slate-800/50 h-12 w-12 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-all border border-slate-700">
               <i className="fa-solid fa-xmark text-lg"></i>
             </button>
@@ -133,14 +125,14 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
                 </div>
                 <h3 className="text-white font-black text-lg uppercase tracking-widest mb-3">Album ancora vuoto</h3>
                 <p className="text-slate-500 font-bold text-xs uppercase tracking-widest leading-relaxed">
-                  Usa il pulsante in alto a destra <br/> per scattare la tua prima foto.
+                  Usa il pulsante in basso per aggiungere <br/> o scattare la tua prima foto.
                 </p>
                 <button 
                   onClick={() => fileInputRef.current?.click()}
                   className="mt-8 bg-purple-600 hover:bg-purple-500 text-white font-black px-8 py-4 rounded-2xl flex items-center gap-3 mx-auto transition-all shadow-xl shadow-purple-900/20 uppercase tracking-widest text-xs"
                 >
                   <i className="fa-solid fa-camera"></i>
-                  Scatta Foto
+                  Scegli o Scatta
                 </button>
               </div>
             )}
@@ -160,7 +152,7 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
               className="shrink-0 w-28 sm:w-32 aspect-video bg-[#1e2538] rounded-2xl border-2 border-dashed border-purple-500/30 flex flex-col items-center justify-center hover:border-purple-500/60 hover:bg-purple-600/10 transition-all group"
             >
               <div className="w-10 h-10 rounded-full bg-purple-600/20 flex items-center justify-center mb-1 group-hover:bg-purple-600 transition-all">
-                <i className="fa-solid fa-camera text-purple-400 group-hover:text-white text-xs"></i>
+                <i className="fa-solid fa-plus text-purple-400 group-hover:text-white text-xs"></i>
               </div>
               <span className="text-[8px] font-black uppercase text-purple-400 tracking-widest">Aggiungi</span>
             </button>
@@ -171,7 +163,6 @@ export const BikeAlbumModal: React.FC<BikeAlbumModalProps> = ({ bike, onUpdate, 
               onChange={handleAddPhoto} 
               className="hidden" 
               accept="image/*"
-              capture="environment"
             />
 
             {photos.map((photo, idx) => (
