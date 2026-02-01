@@ -3,19 +3,21 @@
 <html lang="it" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>BikeLogic AI</title>
     
     <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BikeLogic AI">
+    
+    <!-- Theme Color per barra di stato -->
     <meta name="theme-color" content="#020617">
     
-    <!-- Apple Touch Icon (SVG Base64) -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJncmFkIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojM2I4MmY2O3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzFkNGVkODtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgcng9IjQwIiBmaWxsPSJ1cmwoI2dyYWQpIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDAsIDQ1KSBzY2FsZSgyLjIpIj48cGF0aCBkPSJNNCAxNC41YTIuNSAyLjUgMCAxIDAgNSAwIDIuNSAyLjUgMCAxIDAtNSAwem0yMiAwYTIuNSAyLjUgMCAxIDAgNSAwIDIuNSAyLjUgMCAxIDAtNSAwek0xNC41IDloNU0xNC41IDlMMTEgMTQuNU0xOS41IDlsMy41IDUuNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSIvPjxjaXJjbGUgY3g9IjI4IiBjeT0iNCIgcj0iMyIgZmlsbD0iIzYwYTVmYSIgLz48L2c+PC9zdmc+">
+    <!-- Nuova Apple Touch Icon (Design: Ingranaggio + Bici) -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJncmFkIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMTA0ZTZlO3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzA3MzU1MDtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgcng9IjQwIiBmaWxsPSJ1cmwoI2dyYWQpIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTAsIDkwKSI+PHBhdGggZD0iTTUwLjkzIDkuOTZsLTguNy01LjAyYTIuNDggMi40OCAwIDAgMS0uOTMtMy40NEw0My41IDBsLTkuOTYtNS43NS0yLjI0IDMuODhhMi40OCAyLjQ4IDAgMCAxLTMuNDQuOTNsLTguNy01LjAyYTIuNDggMi40OCAwIDAgMS0uOTMtMy40NEwyMC40LTEzLjY4bC05Ljk2LTUuNzUtMi4yNCAzLjg4YTIuNDggMi40OCAwIDAgMS0zLjQ0LjkzbC04LjctNS4wMmEyLjQ4IDIuNDggMCAwIDEtLjkzLTMuNDRMLTIuNy0yNy4zNmwtOS45Ni01Ljc1LTIuMjQgMy44OGEyLjQ4IDIuNDggMCAwIDEtMy40NC45M2wtOC43LTUuMDJhMi40OCAyLjQ4IDAgMCAxLS45My0zLjQ0TDAtNDFsLTkuOTYtNS43NS0yLjI0IDMuODhhMi40OCAyLjQ4IDAgMCAxLTMuNDQuOTNsLTguNy01LjAyYTIuNDggMi40OCAwIDAgMS0uOTMtMy40NEwtNDEuMDYtMTMuNjhsLTkuOTYtNS43NS0yLjI0IDMuODhhMi40OCAyLjQ4IDAgMCAxLTMuNDQuOTNsLTguNy01LjAyYTIuNDggMi40OCAwIDAgMS0uOTMtMy40NEwtNTAuNzQgMGwtOS45NiA1Ljc1IDIsMiA2MCw2MFoiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSByPSI2MCIgZmlsbD0idXJsKCNncmFkKSIvPjxwYXRoIGQ9Ik0zMC43IDEzLjU1YTIuOTggMi45OCAwIDAgMC0zLjEtLjEzbC0xLjEzLS42NS4wMS0xLjI5YTIuOTggMi45OCAwIDAgMC0xLjMtMi42NGwtMTEuOTctNi45MmEyLjk4IDIuOTggMCAwIDAtMi45OCAwTDAgOC44NmwtMTEuOTctNi45MmEyLjk4IDIuOTggMCAwIDAtMi45OCAwTC0yNi45MyA4Ljg2YTIuOTggMi45OCAwIDAgMC0xLjMgMi42NGwwIDEuMjktMS4xMy42NWEyLjk4IDIuOTggMCAwIDAtMS4zIDIuNjRsMCAxMy44NGEyLjk4IDIuOTggMCAwIDAgMS40OSAyLjU4TDAgNDEuNTlsMjYuOTQtMTUuNTVhMi45OCAyLjk4IDAgMCAwIDEuNDktMi41OHYtMTMuODRhMi45OCAyLjk4IDAgMCAwLTEuNzMtMi41N3oiIGZpbGw9IndoaXRlIiB0cmFuc2Zvcm09InNjYWxlKDAuOCkgdHJhbnNsYXRlKDAsIC0xMCkiLz48ZyBmaWxsPSJub25lIiBzdHJva2U9IiMwNzM1NTAiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYX09InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiB0cmFuc2Zvcm09InNjYWxlKDIuNSkgdHJhbnNsYXRlKC0xNSwgLTI0KSI+PHBhdGggZD0iTTQgMTVIMTRMMTIgMTdIOEw0IDE1Wk00IDE1QTIuNSAyLjUgMCAxIDAgOSAxNU0yMiAxNUEyLjUgMi41IDAgMSAwIDI3IDE1TTExIDhIMTRMMTcgMTJNMTMgOEwxMCAxNU0xNCA4TDE4IDE1Ii8+PC9nPjwvZz48L3N2Zz4=">
     
-    <link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="manifest.json">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -37,9 +39,14 @@
   }
 }
 </script>
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="index.tsx"></script>
     <style>
-      body { background-color: #020617; margin: 0; -webkit-tap-highlight-color: transparent; }
+      body { 
+        background-color: #020617; 
+        margin: 0; 
+        -webkit-tap-highlight-color: transparent; 
+        overflow-x: hidden;
+      }
       #root:empty::before {
         content: "BikeLogic AI: Caricamento...";
         display: flex;
@@ -60,10 +67,12 @@
       .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
       
-      /* Ottimizzazione per notch iPhone */
+      /* Ottimizzazione per notch iPhone e iPad Pro */
       body {
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
       }
     </style>
   </head>
