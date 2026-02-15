@@ -85,6 +85,41 @@ export const extractBikeData = async (query: string, onStatusUpdate?: (status: s
   }
 };
 
+export const searchProductDeals = async (productName: string) => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API_KEY_MISSING");
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = `Trova il prezzo migliore attuale online e i negozi consigliati per il prodotto ciclistico: "${productName}". 
+    Includi il prezzo medio e dove conviene acquistarlo oggi (es. Amazon, Deporvillage, Probikeshop, Mantel, Lordgun). 
+    Sii sintetico e professionale in italiano.`;
+
+    const response = await ai.models.generateContent({
+      model: SEARCH_MODEL,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        temperature: 0.5,
+      },
+    });
+
+    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
+      ?.map((chunk: any) => ({
+        uri: chunk.web?.uri || '',
+        title: chunk.web?.title || 'Vedi Offerta'
+      })).filter((s: any) => s.uri) || [];
+
+    return {
+      text: response.text,
+      sources
+    };
+  } catch (error: any) {
+    console.error("Deal Search Error:", error);
+    throw error;
+  }
+};
+
 export const analyzeBikePart = async (base64Image: string): Promise<string> => {
   const apiKey = getApiKey();
   if (!apiKey) return "Chiave API mancante. Per favore, collegala in alto.";

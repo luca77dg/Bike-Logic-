@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { WishlistItem, WishlistCategory } from '../types.ts';
 import { supabaseService } from '../services/supabase.ts';
+import { searchProductDeals } from '../services/gemini.ts';
 
 const CATEGORIES: { name: WishlistCategory; icon: string; color: string }[] = [
   { name: 'Abbigliamento', icon: 'fa-shirt', color: 'text-purple-400' },
@@ -20,6 +21,10 @@ export const WishlistManager: React.FC = () => {
   const [editingItem, setEditingItem] = useState<WishlistItem | null>(null);
   const [filterPurchased, setFilterPurchased] = useState<'all' | 'pending' | 'bought'>('pending');
 
+  // AI Shopping State
+  const [searchingId, setSearchingId] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<Record<string, { text: string, sources: {uri: string, title: string}[] }>>({});
+
   // Form State
   const [newName, setNewName] = useState('');
   const [newCat, setNewCat] = useState<WishlistCategory>('Accessori');
@@ -37,6 +42,18 @@ export const WishlistManager: React.FC = () => {
     const data = await supabaseService.getWishlist();
     setItems(data);
     setLoading(false);
+  };
+
+  const handleSearchDeals = async (item: WishlistItem) => {
+    setSearchingId(item.id);
+    try {
+      const result = await searchProductDeals(item.name);
+      setSearchResults(prev => ({ ...prev, [item.id]: result }));
+    } catch (err) {
+      alert("Errore durante la ricerca dei prezzi. Verifica la tua chiave API.");
+    } finally {
+      setSearchingId(null);
+    }
   };
 
   const resetForm = () => {
@@ -197,13 +214,16 @@ export const WishlistManager: React.FC = () => {
       {loading ? (
         <div className="py-20 text-center"><i className="fa-solid fa-spinner fa-spin text-2xl text-blue-500"></i></div>
       ) : filteredItems.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {filteredItems.map(item => {
             const cat = CATEGORIES.find(c => c.name === item.category) || CATEGORIES[3];
+            const aiResult = searchResults[item.id];
+            const isSearching = searchingId === item.id;
+
             return (
               <div 
                 key={item.id} 
-                className={`p-6 bg-slate-900/50 border border-slate-800 rounded-3xl group hover:border-blue-500/30 transition-all flex flex-col relative overflow-hidden ${item.is_purchased ? 'opacity-60' : ''}`}
+                className={`p-6 bg-slate-900/50 border border-slate-800 rounded-[2.5rem] group hover:border-blue-500/30 transition-all flex flex-col relative overflow-hidden ${item.is_purchased ? 'opacity-60' : ''}`}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
@@ -222,6 +242,58 @@ export const WishlistManager: React.FC = () => {
                     <i className="fa-solid fa-check"></i>
                   </button>
                 </div>
+
+                {/* AI SHOPPING SECTION */}
+                {!item.is_purchased && (
+                  <div className="mt-2 mb-4">
+                    {aiResult ? (
+                      <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-2 mb-2">
+                          <i className="fa-solid fa-wand-magic-sparkles text-[10px] text-blue-400"></i>
+                          <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Consigli Shopping AI</span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 leading-relaxed mb-3">{aiResult.text}</p>
+                        {aiResult.sources.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {aiResult.sources.slice(0, 3).map((source, sidx) => (
+                              <a 
+                                key={sidx} 
+                                href={source.uri} 
+                                target="_blank" 
+                                rel="noopener"
+                                className="text-[9px] font-black bg-blue-600/20 text-blue-300 px-3 py-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2"
+                              >
+                                <i className="fa-solid fa-cart-shopping"></i>
+                                {source.title.length > 15 ? 'Vedi Offerta' : source.title}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => handleSearchDeals(item)}
+                          className="mt-3 text-[8px] font-black text-slate-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-1"
+                        >
+                          <i className="fa-solid fa-arrows-rotate"></i> Aggiorna prezzi
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => handleSearchDeals(item)}
+                        disabled={isSearching}
+                        className="w-full bg-slate-950 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-900 py-3 rounded-2xl flex items-center justify-center gap-3 transition-all group/ai"
+                      >
+                        {isSearching ? (
+                          <i className="fa-solid fa-spinner fa-spin text-blue-500"></i>
+                        ) : (
+                          <i className="fa-solid fa-magnifying-glass-dollar text-slate-600 group-hover/ai:text-blue-400 transition-colors"></i>
+                        )}
+                        <span className="text-[10px] font-black text-slate-500 group-hover/ai:text-white uppercase tracking-widest transition-colors">
+                          {isSearching ? 'Ricerca prezzi...' : 'Trova Offerte AI'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-800/50">
                   <div className="flex items-center gap-4">
