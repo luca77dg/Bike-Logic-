@@ -53,7 +53,7 @@ export interface MaintenanceHistory {
   replacement_date: string;
 }
 
-export type WishlistCategory = 'Abbigliamento' | 'Luci' | 'Componente' | 'Nutrizione' | 'Gadget' | 'Altro';
+export type WishlistCategory = 'Abbigliamento' | 'Caschi e occhiali' | 'Scarpe' | 'Accessori' | 'Componenti' | 'Manutenzione' | 'Salute';
 
 export interface WishlistItem {
   id: string;

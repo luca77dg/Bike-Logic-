@@ -5,22 +5,24 @@ import { supabaseService } from '../services/supabase.ts';
 
 const CATEGORIES: { name: WishlistCategory; icon: string; color: string }[] = [
   { name: 'Abbigliamento', icon: 'fa-shirt', color: 'text-purple-400' },
-  { name: 'Componente', icon: 'fa-gear', color: 'text-blue-400' },
-  { name: 'Luci', icon: 'fa-lightbulb', color: 'text-yellow-400' },
-  { name: 'Nutrizione', icon: 'fa-bolt', color: 'text-emerald-400' },
-  { name: 'Gadget', icon: 'fa-watch', color: 'text-pink-400' },
-  { name: 'Altro', icon: 'fa-box', color: 'text-slate-400' },
+  { name: 'Caschi e occhiali', icon: 'fa-helmet-safety', color: 'text-blue-400' },
+  { name: 'Scarpe', icon: 'fa-shoe-prints', color: 'text-orange-400' },
+  { name: 'Accessori', icon: 'fa-watch', color: 'text-pink-400' },
+  { name: 'Componenti', icon: 'fa-gear', color: 'text-slate-400' },
+  { name: 'Manutenzione', icon: 'fa-screwdriver-wrench', color: 'text-yellow-400' },
+  { name: 'Salute', icon: 'fa-heart-pulse', color: 'text-red-400' },
 ];
 
 export const WishlistManager: React.FC = () => {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<WishlistItem | null>(null);
   const [filterPurchased, setFilterPurchased] = useState<'all' | 'pending' | 'bought'>('pending');
 
   // Form State
   const [newName, setNewName] = useState('');
-  const [newCat, setNewCat] = useState<WishlistCategory>('Altro');
+  const [newCat, setNewCat] = useState<WishlistCategory>('Accessori');
   const [newPrice, setNewPrice] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newNotes, setNewNotes] = useState('');
@@ -37,29 +39,48 @@ export const WishlistManager: React.FC = () => {
     setLoading(false);
   };
 
-  const handleAddItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    setIsSaving(true);
-    const item: WishlistItem = {
-      id: crypto.randomUUID(),
-      user_id: '',
-      name: newName,
-      category: newCat,
-      is_purchased: false,
-      price_estimate: newPrice ? parseFloat(newPrice) : undefined,
-      product_url: newUrl || undefined,
-      notes: newNotes || undefined,
-      created_at: new Date().toISOString()
-    };
-    await supabaseService.saveWishlistItem(item);
+  const resetForm = () => {
     setNewName('');
     setNewPrice('');
     setNewUrl('');
     setNewNotes('');
-    setShowAdd(false);
+    setNewCat('Accessori');
+    setEditingItem(null);
+    setShowForm(false);
+  };
+
+  const handleSaveItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setIsSaving(true);
+    
+    const item: WishlistItem = {
+      id: editingItem ? editingItem.id : crypto.randomUUID(),
+      user_id: '',
+      name: newName,
+      category: newCat,
+      is_purchased: editingItem ? editingItem.is_purchased : false,
+      price_estimate: newPrice ? parseFloat(newPrice) : undefined,
+      product_url: newUrl || undefined,
+      notes: newNotes || undefined,
+      created_at: editingItem ? editingItem.created_at : new Date().toISOString()
+    };
+    
+    await supabaseService.saveWishlistItem(item);
+    resetForm();
     setIsSaving(false);
     loadItems();
+  };
+
+  const startEdit = (item: WishlistItem) => {
+    setEditingItem(item);
+    setNewName(item.name);
+    setNewCat(item.category);
+    setNewPrice(item.price_estimate?.toString() || '');
+    setNewUrl(item.product_url || '');
+    setNewNotes(item.notes || '');
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const togglePurchased = async (item: WishlistItem) => {
@@ -89,16 +110,18 @@ export const WishlistManager: React.FC = () => {
           <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mt-1">Shopping & Accessories</p>
         </div>
         <button 
-          onClick={() => setShowAdd(!showAdd)}
+          onClick={() => { if(showForm) resetForm(); else setShowForm(true); }}
           className="bg-blue-600 hover:bg-blue-500 text-white h-12 w-12 rounded-2xl shadow-lg flex items-center justify-center transition-all active:scale-95"
         >
-          <i className={`fa-solid ${showAdd ? 'fa-xmark' : 'fa-plus'}`}></i>
+          <i className={`fa-solid ${showForm ? 'fa-xmark' : 'fa-plus'}`}></i>
         </button>
       </div>
 
-      {showAdd && (
-        <form onSubmit={handleAddItem} className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] space-y-6 shadow-2xl animate-in slide-in-from-top-4 duration-300">
-          <h3 className="text-xs font-black text-blue-400 uppercase tracking-widest">Aggiungi Desiderio</h3>
+      {showForm && (
+        <form onSubmit={handleSaveItem} className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] space-y-6 shadow-2xl animate-in slide-in-from-top-4 duration-300">
+          <h3 className="text-xs font-black text-blue-400 uppercase tracking-widest">
+            {editingItem ? 'Modifica Elemento' : 'Aggiungi Desiderio'}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
@@ -138,12 +161,20 @@ export const WishlistManager: React.FC = () => {
               </div>
             </div>
           </div>
-          <button 
-            type="submit" disabled={isSaving}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-900/20 transition-all uppercase tracking-widest text-xs"
-          >
-            {isSaving ? 'Salvataggio...' : 'Aggiungi alla lista'}
-          </button>
+          <div className="flex gap-3">
+             <button 
+              type="button" onClick={resetForm}
+              className="flex-1 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
+            >
+              Annulla
+            </button>
+            <button 
+              type="submit" disabled={isSaving}
+              className="flex-[2] bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-900/20 transition-all uppercase tracking-widest text-xs"
+            >
+              {isSaving ? 'Salvataggio...' : (editingItem ? 'Salva Modifiche' : 'Aggiungi alla lista')}
+            </button>
+          </div>
         </form>
       )}
 
@@ -168,7 +199,7 @@ export const WishlistManager: React.FC = () => {
       ) : filteredItems.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {filteredItems.map(item => {
-            const cat = CATEGORIES.find(c => c.name === item.category) || CATEGORIES[5];
+            const cat = CATEGORIES.find(c => c.name === item.category) || CATEGORIES[3];
             return (
               <div 
                 key={item.id} 
@@ -203,12 +234,22 @@ export const WishlistManager: React.FC = () => {
                       </a>
                     )}
                   </div>
-                  <button 
-                    onClick={() => removeItem(item.id)}
-                    className="text-slate-700 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <i className="fa-solid fa-trash-can text-xs"></i>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => startEdit(item)}
+                      className="text-slate-600 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all h-8 w-8 flex items-center justify-center rounded-lg bg-slate-800/50"
+                      title="Modifica"
+                    >
+                      <i className="fa-solid fa-pen text-[10px]"></i>
+                    </button>
+                    <button 
+                      onClick={() => removeItem(item.id)}
+                      className="text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all h-8 w-8 flex items-center justify-center rounded-lg bg-slate-800/50"
+                      title="Elimina"
+                    >
+                      <i className="fa-solid fa-trash-can text-[10px]"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             );

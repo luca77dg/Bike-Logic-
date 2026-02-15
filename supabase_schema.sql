@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS wishlist (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL DEFAULT 'bikelogic_global_user',
   name TEXT NOT NULL,
-  category TEXT NOT NULL DEFAULT 'Altro',
+  category TEXT NOT NULL DEFAULT 'Accessori',
   is_purchased BOOLEAN DEFAULT FALSE,
   price_estimate FLOAT,
   product_url TEXT,
