@@ -53,6 +53,20 @@ export interface MaintenanceHistory {
   replacement_date: string;
 }
 
+export type WishlistCategory = 'Abbigliamento' | 'Luci' | 'Componente' | 'Nutrizione' | 'Gadget' | 'Altro';
+
+export interface WishlistItem {
+  id: string;
+  user_id: string;
+  name: string;
+  category: WishlistCategory;
+  is_purchased: boolean;
+  price_estimate?: number;
+  product_url?: string;
+  notes?: string;
+  created_at: string;
+}
+
 export interface StravaTokenResponse {
   access_token: string;
   refresh_token: string;

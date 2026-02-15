@@ -40,7 +40,27 @@ CREATE TABLE IF NOT EXISTS maintenance_history (
   replacement_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Tabella Wishlist (Nuova Sezione)
+CREATE TABLE IF NOT EXISTS wishlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL DEFAULT 'bikelogic_global_user',
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'Altro',
+  is_purchased BOOLEAN DEFAULT FALSE,
+  price_estimate FLOAT,
+  product_url TEXT,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Indici per performance
 CREATE INDEX IF NOT EXISTS idx_maintenance_bike_id ON maintenance(bike_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_history_bike_id ON maintenance_history(bike_id);
 CREATE INDEX IF NOT EXISTS idx_bikes_user_id ON bikes(user_id);
+CREATE INDEX IF NOT EXISTS idx_wishlist_user_id ON wishlist(user_id);
+
+-- Permessi (Opzionale: disabilita RLS per semplicità se non usi Auth di Supabase)
+ALTER TABLE bikes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE maintenance DISABLE ROW LEVEL SECURITY;
+ALTER TABLE maintenance_history DISABLE ROW LEVEL SECURITY;
+ALTER TABLE wishlist DISABLE ROW LEVEL SECURITY;

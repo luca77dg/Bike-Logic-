@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Bike, MaintenanceRecord, MaintenanceHistory } from '../types.ts';
+import { Bike, MaintenanceRecord, MaintenanceHistory, WishlistItem } from '../types.ts';
 
 const supabaseUrl = (
   (import.meta as any).env?.VITE_SUPABASE_URL || 
@@ -161,6 +161,51 @@ export const supabaseService = {
       if (error) throw error;
     } catch (err: any) {
       handleSupabaseError(err, 'maintenance_history');
+    }
+  },
+
+  // WISHLIST METHODS
+  getWishlist: async (): Promise<WishlistItem[]> => {
+    if (!supabase) {
+      const data = localStorage.getItem('bikelogic_wishlist');
+      return data ? JSON.parse(data) : [];
+    }
+    try {
+      const { data, error } = await supabase
+        .from('wishlist')
+        .select('*')
+        .eq('user_id', SHARED_USER_ID)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      const data = localStorage.getItem('bikelogic_wishlist');
+      return data ? JSON.parse(data) : [];
+    }
+  },
+
+  saveWishlistItem: async (item: WishlistItem): Promise<void> => {
+    const itemToSave = { ...item, user_id: SHARED_USER_ID };
+    const current = await supabaseService.getWishlist();
+    const newList = [...current.filter(i => i.id !== item.id), itemToSave];
+    localStorage.setItem('bikelogic_wishlist', JSON.stringify(newList));
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from('wishlist').upsert(itemToSave, { onConflict: 'id' });
+      if (error) throw error;
+    } catch (err) {
+      handleSupabaseError(err, 'wishlist');
+    }
+  },
+
+  deleteWishlistItem: async (id: string): Promise<void> => {
+    const current = await supabaseService.getWishlist();
+    localStorage.setItem('bikelogic_wishlist', JSON.stringify(current.filter(i => i.id !== id)));
+    if (!supabase) return;
+    try {
+      await supabase.from('wishlist').delete().eq('id', id);
+    } catch (err) {
+      console.error("Delete wishlist error");
     }
   },
 
