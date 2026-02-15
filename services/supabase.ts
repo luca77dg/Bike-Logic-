@@ -107,7 +107,7 @@ export const supabaseService = {
     }
   },
 
-  // METODI PER LO STORICO
+  // METODI PER LO STORICO (Sincronizzati Cloud)
   getHistory: async (bikeId: string): Promise<MaintenanceHistory[]> => {
     if (!supabase) {
       const data = localStorage.getItem('bikelogic_history');
@@ -127,16 +127,34 @@ export const supabaseService = {
     }
   },
 
-  addHistoryRecord: async (record: MaintenanceHistory): Promise<void> => {
+  saveHistoryRecord: async (record: MaintenanceHistory): Promise<void> => {
     const data = localStorage.getItem('bikelogic_history');
     const all: MaintenanceHistory[] = data ? JSON.parse(data) : [];
-    localStorage.setItem('bikelogic_history', JSON.stringify([record, ...all]));
+    const newAll = [...all.filter(h => h.id !== record.id), record];
+    localStorage.setItem('bikelogic_history', JSON.stringify(newAll));
     if (!supabase) return;
     try {
-      const { error } = await supabase.from('maintenance_history').insert(record);
+      const { error } = await supabase.from('maintenance_history').upsert(record, { onConflict: 'id' });
       if (error) throw error;
     } catch (err: any) {
-      console.error("History Save Error:", err.message);
+      console.error("History Cloud Error:", err.message);
+      throw err;
+    }
+  },
+
+  deleteHistoryRecord: async (id: string): Promise<void> => {
+    const data = localStorage.getItem('bikelogic_history');
+    if (data) {
+      const all: MaintenanceHistory[] = JSON.parse(data);
+      localStorage.setItem('bikelogic_history', JSON.stringify(all.filter(h => h.id !== id)));
+    }
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from('maintenance_history').delete().eq('id', id);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Delete History Error:", err.message);
+      throw err;
     }
   },
 

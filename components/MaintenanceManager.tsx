@@ -31,6 +31,8 @@ const COMMON_SUGGESTIONS: ComponentSuggestion[] = [
 export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, records, onUpdate, onClose }) => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [history, setHistory] = useState<MaintenanceHistory[]>([]);
+  
+  // State for current component form
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLimit, setNewLimit] = useState(3000);
@@ -38,6 +40,10 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
   const [newNotes, setNewNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // State for history editing/manual adding
+  const [editingHistory, setEditingHistory] = useState<MaintenanceHistory | null>(null);
+  const [isAddingManualHistory, setIsAddingManualHistory] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -76,15 +82,37 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
       setIsAdding(false);
       onUpdate();
     } catch (err: any) {
-      alert("Errore nel salvataggio. Errore: " + err.message);
+      alert("Errore nel salvataggio: " + err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const applySuggestion = (suggestion: ComponentSuggestion) => {
-    setNewName(suggestion.name);
-    setNewLimit(suggestion.limit);
+  const handleSaveHistory = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSaving(true);
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const record: MaintenanceHistory = {
+        id: editingHistory?.id || crypto.randomUUID(),
+        bike_id: bike.id,
+        component_name: formData.get('h_name') as string,
+        replaced_at_km: parseFloat(formData.get('h_km') as string),
+        distance_covered: parseFloat(formData.get('h_dist') as string),
+        notes: formData.get('h_notes') as string,
+        replacement_date: formData.get('h_date') as string
+      };
+      
+      await supabaseService.saveHistoryRecord(record);
+      setEditingHistory(null);
+      setIsAddingManualHistory(false);
+      loadHistory();
+    } catch (err: any) {
+      alert("Errore nel salvataggio storico: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleReset = async (record: MaintenanceRecord) => {
@@ -95,12 +123,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
     
     if (customKm !== null) {
       const resetKm = parseFloat(customKm);
-      if (isNaN(resetKm)) {
-        alert("Inserisci un valore numerico valido.");
-        return;
-      }
+      if (isNaN(resetKm)) return;
 
-      // 1. Salva nello storico
       const kmPercorsi = Math.max(0, resetKm - record.km_at_install);
       const historyRecord: MaintenanceHistory = {
         id: crypto.randomUUID(),
@@ -108,31 +132,32 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
         component_name: record.component_name,
         replaced_at_km: resetKm,
         distance_covered: kmPercorsi,
-        notes: record.notes,
+        notes: record.notes || '',
         replacement_date: new Date().toISOString()
       };
-      await supabaseService.addHistoryRecord(historyRecord);
-
-      // 2. Aggiorna record attuale
-      const updated = { 
+      
+      await supabaseService.saveHistoryRecord(historyRecord);
+      await supabaseService.saveMaintenance({ 
         ...record, 
         km_at_install: resetKm,
         last_check_km: resetKm 
-      };
-      await supabaseService.saveMaintenance(updated);
+      });
       onUpdate();
-      alert(`Sostituzione registrata! Storico aggiornato (+${kmPercorsi} km).`);
+      alert(`Sostituzione registrata!`);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteHistory = async (id: string) => {
+    if (confirm("Rimuovere definitivamente questo intervento dallo storico?")) {
+      await supabaseService.deleteHistoryRecord(id);
+      loadHistory();
+    }
+  };
+
+  const handleDeleteCurrent = async (id: string) => {
     if (confirm("Rimuovere questo componente dal tracciamento?")) {
-      try {
-        await supabaseService.deleteMaintenance(id);
-        onUpdate();
-      } catch (err: any) {
-        alert("Errore nell'eliminazione: " + err.message);
-      }
+      await supabaseService.deleteMaintenance(id);
+      onUpdate();
     }
   };
 
@@ -146,7 +171,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
               <i className="fa-solid fa-screwdriver-wrench text-orange-500"></i>
             </div>
             <div>
-              <h2 className="text-xl font-black text-white">Manutenzione</h2>
+              <h2 className="text-xl font-black text-white">Gestione Componenti</h2>
               <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{bike.name}</p>
             </div>
           </div>
@@ -155,13 +180,12 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
           </button>
         </div>
 
-        {/* Tab Selector */}
         <div className="flex bg-slate-950/50 p-1.5 mx-6 mt-4 rounded-2xl border border-slate-800 shrink-0">
           <button 
             onClick={() => setActiveTab('current')}
             className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'current' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            Attuali
+            Attivi
           </button>
           <button 
             onClick={() => setActiveTab('history')}
@@ -176,82 +200,39 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
             <>
               {isAdding ? (
                 <div className="mb-8 animate-in slide-in-from-top-4 duration-300">
-                  <div className="mb-4">
-                    <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 ml-1">Suggeriti per te</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {COMMON_SUGGESTIONS.map((suggestion, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          disabled={isSaving}
-                          onClick={() => applySuggestion(suggestion)}
-                          className={`px-3 py-2 rounded-xl border text-[10px] font-bold uppercase transition-all flex items-center gap-2 ${
-                            newName === suggestion.name 
-                              ? 'bg-blue-600 border-blue-500 text-white' 
-                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
-                          }`}
-                        >
-                          <i className={`fa-solid ${suggestion.icon} text-[10px]`}></i>
-                          {suggestion.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   <form onSubmit={handleAddComponent} className="p-6 bg-slate-800/50 rounded-3xl border border-blue-500/30 space-y-4 shadow-xl shadow-blue-900/10">
-                    <h3 className="text-xs font-black text-white uppercase tracking-widest mb-2">Dati Componente</h3>
+                    <h3 className="text-xs font-black text-white uppercase tracking-widest mb-2">Nuovo Componente</h3>
                     <div>
                       <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Nome</label>
                       <input 
-                        autoFocus
-                        required
-                        disabled={isSaving}
-                        value={newName}
+                        autoFocus required disabled={isSaving} value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all disabled:opacity-50"
-                        placeholder="Es: Catena 12v, Pasticche Post..."
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500"
+                        placeholder="Es: Catena 12v..."
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Km all'installazione</label>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Km Installazione</label>
                         <input 
-                          type="number"
-                          required
-                          disabled={isSaving}
-                          value={installKm}
+                          type="number" required disabled={isSaving} value={installKm}
                           onChange={(e) => setInstallKm(parseFloat(e.target.value) || 0)}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all disabled:opacity-50"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm"
                         />
                       </div>
                       <div>
-                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Durata stimata (km)</label>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Durata (km)</label>
                         <input 
-                          type="number"
-                          required
-                          disabled={isSaving}
-                          value={newLimit}
+                          type="number" required disabled={isSaving} value={newLimit}
                           onChange={(e) => setNewLimit(parseInt(e.target.value))}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all disabled:opacity-50"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm"
                         />
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Note (Opzionale)</label>
-                      <textarea 
-                        value={newNotes}
-                        disabled={isSaving}
-                        onChange={(e) => setNewNotes(e.target.value)}
-                        rows={2}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 ring-blue-500 transition-all resize-none disabled:opacity-50"
-                        placeholder="Es: Shimano Ultegra, montata con grasso..."
-                      />
-                    </div>
                     <div className="flex gap-3 pt-2">
-                      <button type="button" disabled={isSaving} onClick={() => setIsAdding(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase hover:text-white transition-colors">Annulla</button>
-                      <button type="submit" disabled={isSaving} className="flex-[2] py-3 bg-blue-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition-all flex items-center justify-center gap-2">
-                        {isSaving ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-check"></i>}
-                        <span>{isSaving ? 'Salvataggio...' : 'Aggiungi'}</span>
+                      <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase">Annulla</button>
+                      <button type="submit" disabled={isSaving} className="flex-[2] py-3 bg-blue-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg">
+                        {isSaving ? 'Salvataggio...' : 'Aggiungi'}
                       </button>
                     </div>
                   </form>
@@ -259,11 +240,9 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
               ) : (
                 <button 
                   onClick={() => setIsAdding(true)}
-                  className="w-full mb-8 py-5 bg-slate-800/50 hover:bg-slate-800 border border-dashed border-slate-700 rounded-2xl flex items-center justify-center gap-3 text-slate-400 hover:text-blue-400 transition-all group"
+                  className="w-full mb-8 py-5 bg-slate-800/50 hover:bg-slate-800 border border-dashed border-slate-700 rounded-2xl flex items-center justify-center gap-3 text-slate-400 hover:text-blue-400 transition-all"
                 >
-                  <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-600 group-hover:border-blue-500 transition-all duration-300">
-                    <i className="fa-solid fa-plus text-xs group-hover:text-white"></i>
-                  </div>
+                  <i className="fa-solid fa-plus text-xs"></i>
                   <span className="text-[10px] font-black uppercase tracking-widest">Traccia nuovo componente</span>
                 </button>
               )}
@@ -283,107 +262,108 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                             <span className={`text-[10px] font-black ${isCritical ? 'text-red-400' : 'text-blue-400'}`}>{wearPercentage}%</span>
                           </div>
                           <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full transition-all duration-500 ${isCritical ? 'bg-gradient-to-r from-red-600 to-orange-500' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`}
-                              style={{ width: `${wearPercentage}%` }}
-                            ></div>
+                            <div className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-blue-600 to-blue-400" style={{ width: `${wearPercentage}%` }}></div>
                           </div>
                         </div>
                         <div className="flex gap-2 shrink-0">
-                          <button 
-                            onClick={() => handleReset(record)}
-                            className="h-10 px-4 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl border border-blue-600/20 transition-all flex items-center gap-2 group/btn shadow-lg hover:shadow-blue-900/20"
-                            title="Registra Sostituzione"
-                          >
-                            <i className="fa-solid fa-rotate text-xs group-hover/btn:rotate-180 transition-transform duration-500"></i>
+                          <button onClick={() => handleReset(record)} className="h-10 px-4 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl border border-blue-600/20 transition-all flex items-center gap-2">
+                            <i className="fa-solid fa-rotate text-xs"></i>
                             <span className="text-[9px] font-black uppercase tracking-widest">Sostituisci</span>
                           </button>
-                          <button 
-                            onClick={() => handleDelete(record.id)}
-                            className="h-10 w-10 bg-slate-800 text-slate-500 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-                            title="Elimina"
-                          >
+                          <button onClick={() => handleDeleteCurrent(record.id)} className="h-10 w-10 bg-slate-800 text-slate-500 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <i className="fa-solid fa-trash-can text-xs"></i>
                           </button>
                         </div>
                       </div>
-                      
-                      <div className="flex justify-between items-start pt-2 border-t border-slate-800/50">
-                        <div className="flex flex-col gap-1 flex-1 min-w-0 mr-4">
-                          <div className="flex gap-4">
-                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight">
-                              Uso: {kmSinceInstall.toLocaleString()} / {record.lifespan_limit.toLocaleString()} km
-                            </p>
-                            <p className="text-[8px] text-slate-600 font-bold uppercase italic">
-                              Montato a: {record.km_at_install.toLocaleString()} km
-                            </p>
-                          </div>
-                          {record.notes && (
-                            <div className="flex items-start gap-2 mt-2 bg-black/30 p-2.5 rounded-xl border border-white/5">
-                              <i className="fa-solid fa-note-sticky text-[8px] text-blue-400/60 mt-0.5"></i>
-                              <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic break-words">
-                                {record.notes}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        {isCritical && (
-                          <p className="text-[9px] text-red-500 font-black uppercase animate-pulse mt-1 shrink-0">Sostituire!</p>
-                        )}
-                      </div>
                     </div>
                   );
                 }) : (
-                  <div className="text-center py-10 opacity-30">
-                    <i className="fa-solid fa-box-open text-3xl mb-3"></i>
-                    <p className="text-[10px] font-black uppercase tracking-widest">Nessun componente in lista</p>
-                  </div>
+                  <div className="text-center py-10 opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">Nessun componente in lista</p></div>
                 )}
               </div>
             </>
           ) : (
             <div className="space-y-6 animate-in fade-in duration-500">
+              {/* Bottone Aggiungi Manuale Storico */}
+              {!isAddingManualHistory && !editingHistory && (
+                <button 
+                  onClick={() => setIsAddingManualHistory(true)}
+                  className="w-full py-4 bg-purple-600/10 border border-dashed border-purple-600/40 rounded-2xl flex items-center justify-center gap-3 text-purple-400 hover:bg-purple-600/20 transition-all"
+                >
+                  <i className="fa-solid fa-calendar-plus text-xs"></i>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Aggiungi intervento passato</span>
+                </button>
+              )}
+
+              {/* Form Aggiungi/Modifica Storico */}
+              {(isAddingManualHistory || editingHistory) && (
+                <form onSubmit={handleSaveHistory} className="p-6 bg-slate-800 border border-purple-500/30 rounded-3xl space-y-4 shadow-xl">
+                  <h3 className="text-xs font-black text-purple-400 uppercase tracking-widest mb-2">
+                    {editingHistory ? 'Modifica Intervento' : 'Nuovo Intervento Passato'}
+                  </h3>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Componente</label>
+                    <input name="h_name" defaultValue={editingHistory?.component_name || ''} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Data</label>
+                      <input name="h_date" type="date" defaultValue={editingHistory?.replacement_date.split('T')[0] || new Date().toISOString().split('T')[0]} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Km Bici</label>
+                      <input name="h_km" type="number" defaultValue={editingHistory?.replaced_at_km || bike.total_km} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Durata Parte (km)</label>
+                      <input name="h_dist" type="number" defaultValue={editingHistory?.distance_covered || 0} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Note</label>
+                      <input name="h_notes" defaultValue={editingHistory?.notes || ''} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" placeholder="Opzionale..." />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => { setEditingHistory(null); setIsAddingManualHistory(false); }} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase">Annulla</button>
+                    <button type="submit" disabled={isSaving} className="flex-[2] py-3 bg-purple-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg">
+                      {isSaving ? 'Salvataggio...' : 'Salva'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
               {isLoadingHistory ? (
                 <div className="py-20 text-center"><i className="fa-solid fa-spinner fa-spin text-2xl text-purple-500"></i></div>
               ) : history.length > 0 ? (
                 history.map((item) => (
-                  <div key={item.id} className="p-6 bg-slate-800/20 border border-slate-700/30 rounded-3xl relative group overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                      <i className="fa-solid fa-clock-rotate-left text-4xl"></i>
-                    </div>
-                    
+                  <div key={item.id} className="p-6 bg-slate-800/20 border border-slate-700/30 rounded-3xl relative group">
                     <div className="flex justify-between items-start mb-4">
-                      <div>
+                      <div className="flex-1">
                         <h4 className="text-lg font-black text-white leading-none mb-1">{item.component_name}</h4>
                         <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">
                           {new Date(item.replacement_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xl font-black text-white leading-none">+{item.distance_covered.toLocaleString()} <span className="text-[9px] text-slate-500">km</span></p>
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mt-1">Distanza coperta</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditingHistory(item)} className="h-9 w-9 bg-slate-800 text-slate-400 hover:text-blue-400 rounded-xl border border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
+                          <i className="fa-solid fa-pen text-[10px]"></i>
+                        </button>
+                        <button onClick={() => handleDeleteHistory(item.id)} className="h-9 w-9 bg-slate-800 text-slate-400 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
+                          <i className="fa-solid fa-trash text-[10px]"></i>
+                        </button>
+                        <div className="text-right">
+                          <p className="text-xl font-black text-white leading-none">+{item.distance_covered.toLocaleString()} <span className="text-[9px] text-slate-500">km</span></p>
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className="bg-black/30 p-3 rounded-2xl border border-white/5">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Dettaglio</span>
-                        <span className="text-[9px] font-bold text-slate-400">Sostituito a {item.replaced_at_km.toLocaleString()} km tot.</span>
-                      </div>
-                      {item.notes ? (
-                        <p className="text-xs text-slate-300 italic leading-relaxed">"{item.notes}"</p>
-                      ) : (
-                        <p className="text-[10px] text-slate-600 italic">Nessuna nota aggiuntiva</p>
-                      )}
-                    </div>
+                    {item.notes && <p className="text-xs text-slate-400 italic bg-black/20 p-3 rounded-xl border border-white/5">{item.notes}</p>}
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mt-3">Sostituito a {item.replaced_at_km.toLocaleString()} km totali</p>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-20 opacity-30">
-                  <i className="fa-solid fa-clock-rotate-left text-4xl mb-4 text-slate-700"></i>
-                  <p className="text-[10px] font-black uppercase tracking-widest">Nessuno storico disponibile</p>
-                  <p className="text-[9px] mt-2 font-bold uppercase text-slate-600">Le sostituzioni appariranno qui dopo il reset.</p>
-                </div>
+                <div className="text-center py-20 opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">Nessuno storico disponibile</p></div>
               )}
             </div>
           )}

@@ -70,7 +70,8 @@ export const AIVision: React.FC<AIVisionProps> = ({ bike, records, onUpdate, onC
         notes: `Sostituzione guidata da analisi IA. ${record.notes || ''}`,
         replacement_date: new Date().toISOString()
       };
-      await supabaseService.addHistoryRecord(historyRecord);
+      // Fixed: changed addHistoryRecord to saveHistoryRecord to match the definition in supabaseService
+      await supabaseService.saveHistoryRecord(historyRecord);
 
       // 2. Aggiorna record attuale
       const updated = { 
