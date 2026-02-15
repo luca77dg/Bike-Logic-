@@ -1,10 +1,11 @@
 
 -- ESEGUI QUESTO CODICE NEL "SQL EDITOR" DI SUPABASE --
+-- Risolve gli errori "RLS Disabled in Public" e "Policy Exists RLS Disabled"
 
--- Estensione per UUID
+-- 1. Estensione per UUID
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Tabella Bikes
+-- 2. Creazione Tabelle (con IF NOT EXISTS per sicurezza)
 CREATE TABLE IF NOT EXISTS bikes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL DEFAULT 'bikelogic_global_user',
@@ -17,7 +18,6 @@ CREATE TABLE IF NOT EXISTS bikes (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabella Maintenance (Componenti Attuali)
 CREATE TABLE IF NOT EXISTS maintenance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bike_id UUID REFERENCES bikes(id) ON DELETE CASCADE,
@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS maintenance (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabella Storico Sostituzioni (Interventi Passati)
 CREATE TABLE IF NOT EXISTS maintenance_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bike_id UUID REFERENCES bikes(id) ON DELETE CASCADE,
@@ -40,7 +39,6 @@ CREATE TABLE IF NOT EXISTS maintenance_history (
   replacement_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabella Wishlist (Nuova Sezione)
 CREATE TABLE IF NOT EXISTS wishlist (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL DEFAULT 'bikelogic_global_user',
@@ -53,14 +51,28 @@ CREATE TABLE IF NOT EXISTS wishlist (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Indici per performance
+-- 3. Indici per performance
 CREATE INDEX IF NOT EXISTS idx_maintenance_bike_id ON maintenance(bike_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_history_bike_id ON maintenance_history(bike_id);
 CREATE INDEX IF NOT EXISTS idx_bikes_user_id ON bikes(user_id);
 CREATE INDEX IF NOT EXISTS idx_wishlist_user_id ON wishlist(user_id);
 
--- Permessi (Opzionale: disabilita RLS per semplicità se non usi Auth di Supabase)
-ALTER TABLE bikes DISABLE ROW LEVEL SECURITY;
-ALTER TABLE maintenance DISABLE ROW LEVEL SECURITY;
-ALTER TABLE maintenance_history DISABLE ROW LEVEL SECURITY;
-ALTER TABLE wishlist DISABLE ROW LEVEL SECURITY;
+-- 4. CONFIGURAZIONE SICUREZZA (Risoluzione Errori Advisor)
+
+-- Abilita RLS su tutte le tabelle
+ALTER TABLE bikes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maintenance_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wishlist ENABLE ROW LEVEL SECURITY;
+
+-- Rimuovi eventuali policy esistenti per evitare duplicati
+DROP POLICY IF EXISTS "Public Access" ON bikes;
+DROP POLICY IF EXISTS "Public Access" ON maintenance;
+DROP POLICY IF EXISTS "Public Access" ON maintenance_history;
+DROP POLICY IF EXISTS "Public Access" ON wishlist;
+
+-- Crea nuove policy "Open" che permettono l'accesso anonimo (richiesto dal tuo setup attuale)
+CREATE POLICY "Public Access" ON bikes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Access" ON maintenance FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Access" ON maintenance_history FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Access" ON wishlist FOR ALL USING (true) WITH CHECK (true);
