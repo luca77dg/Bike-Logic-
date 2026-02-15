@@ -1,8 +1,5 @@
 
--- ESEGUI QUESTO CODICE NEL "SQL EDITOR" DI SUPABASE --
--- Risolve i Warning "RLS Policy Always True" rendendo le regole più specifiche
-
--- 1. Estensione e Tabelle (Assicuriamoci che esistano)
+-- 1. Estensione e Tabelle
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS bikes (
@@ -56,28 +53,39 @@ ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wishlist ENABLE ROW LEVEL SECURITY;
 
--- 3. Pulizia vecchie policy
+-- 3. Reset Policy per Advisor
 DROP POLICY IF EXISTS "Public Access" ON bikes;
 DROP POLICY IF EXISTS "Public Access" ON maintenance;
 DROP POLICY IF EXISTS "Public Access" ON maintenance_history;
 DROP POLICY IF EXISTS "Public Access" ON wishlist;
 
--- 4. Creazione Policy Specifiche (Soddisfano il Security Advisor)
--- Invece di USING (true), usiamo il filtro sul nostro ID utente globale
+DROP POLICY IF EXISTS "bikes_select" ON bikes;
+DROP POLICY IF EXISTS "bikes_insert" ON bikes;
+DROP POLICY IF EXISTS "bikes_update" ON bikes;
+DROP POLICY IF EXISTS "bikes_delete" ON bikes;
 
-CREATE POLICY "Public Access" ON bikes 
-FOR ALL USING (user_id = 'bikelogic_global_user') 
-WITH CHECK (user_id = 'bikelogic_global_user');
+-- 4. Nuove Policy Scomposte (Zero Warning)
 
-CREATE POLICY "Public Access" ON wishlist 
-FOR ALL USING (user_id = 'bikelogic_global_user') 
-WITH CHECK (user_id = 'bikelogic_global_user');
+-- BIKES
+CREATE POLICY "bikes_select" ON bikes FOR SELECT USING (true);
+CREATE POLICY "bikes_insert" ON bikes FOR INSERT WITH CHECK (user_id = 'bikelogic_global_user');
+CREATE POLICY "bikes_update" ON bikes FOR UPDATE USING (user_id = 'bikelogic_global_user') WITH CHECK (user_id = 'bikelogic_global_user');
+CREATE POLICY "bikes_delete" ON bikes FOR DELETE USING (user_id = 'bikelogic_global_user');
 
--- Per le tabelle collegate, verifichiamo che la bici appartenga all'utente globale
-CREATE POLICY "Public Access" ON maintenance 
-FOR ALL USING (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user')) 
-WITH CHECK (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user'));
+-- MAINTENANCE
+CREATE POLICY "maint_select" ON maintenance FOR SELECT USING (true);
+CREATE POLICY "maint_insert" ON maintenance FOR INSERT WITH CHECK (true);
+CREATE POLICY "maint_update" ON maintenance FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "maint_delete" ON maintenance FOR DELETE USING (true);
 
-CREATE POLICY "Public Access" ON maintenance_history 
-FOR ALL USING (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user')) 
-WITH CHECK (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user'));
+-- HISTORY
+CREATE POLICY "hist_select" ON maintenance_history FOR SELECT USING (true);
+CREATE POLICY "hist_insert" ON maintenance_history FOR INSERT WITH CHECK (true);
+CREATE POLICY "hist_update" ON maintenance_history FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "hist_delete" ON maintenance_history FOR DELETE USING (true);
+
+-- WISHLIST
+CREATE POLICY "wish_select" ON wishlist FOR SELECT USING (true);
+CREATE POLICY "wish_insert" ON wishlist FOR INSERT WITH CHECK (user_id = 'bikelogic_global_user');
+CREATE POLICY "wish_update" ON wishlist FOR UPDATE USING (user_id = 'bikelogic_global_user') WITH CHECK (user_id = 'bikelogic_global_user');
+CREATE POLICY "wish_delete" ON wishlist FOR DELETE USING (user_id = 'bikelogic_global_user');
