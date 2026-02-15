@@ -56,6 +56,14 @@ export const WishlistManager: React.FC = () => {
     }
   };
 
+  const dismissSearchResult = (id: string) => {
+    setSearchResults(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
   const resetForm = () => {
     setNewName('');
     setNewPrice('');
@@ -247,12 +255,18 @@ export const WishlistManager: React.FC = () => {
                 {!item.is_purchased && (
                   <div className="mt-2 mb-4">
                     {aiResult ? (
-                      <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300 relative">
+                        <button 
+                          onClick={() => dismissSearchResult(item.id)}
+                          className="absolute top-3 right-3 h-6 w-6 rounded-full flex items-center justify-center bg-blue-900/30 text-blue-400 hover:bg-blue-900/50 hover:text-white transition-all"
+                        >
+                          <i className="fa-solid fa-xmark text-[10px]"></i>
+                        </button>
                         <div className="flex items-center gap-2 mb-2">
                           <i className="fa-solid fa-wand-magic-sparkles text-[10px] text-blue-400"></i>
                           <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Consigli Shopping AI</span>
                         </div>
-                        <p className="text-[11px] text-slate-300 leading-relaxed mb-3">{aiResult.text}</p>
+                        <p className="text-[11px] text-slate-300 leading-relaxed mb-3 pr-4">{aiResult.text}</p>
                         {aiResult.sources.length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {aiResult.sources.slice(0, 3).map((source, sidx) => (
