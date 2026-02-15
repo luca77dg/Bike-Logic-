@@ -64,39 +64,43 @@ export const BikeCard: React.FC<BikeCardProps> = ({ bike, maintenance, onAnalyze
 
       <div className="p-8">
         <div className="mb-8">
-          {/* Nome della bici più grande e prominente */}
-          <h3 className="text-4xl font-black text-white leading-tight mb-4 tracking-tighter group-hover:text-blue-400 transition-colors">
+          {/* Nome della bici con dimensione bilanciata */}
+          <h3 className="text-3xl font-black text-white leading-tight mb-5 tracking-tighter group-hover:text-blue-400 transition-colors">
             {bike.name}
           </h3>
           
-          {/* Tutti i pulsanti sulla stessa riga */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button 
-              onClick={() => setShowSpecs(true)}
-              className="text-[9px] font-black text-blue-500 hover:text-white uppercase tracking-widest flex items-center gap-1.5 transition-all bg-blue-600/10 hover:bg-blue-600 px-3 py-2 rounded-xl border border-blue-500/20"
-            >
-              <i className="fa-solid fa-file-invoice"></i>
-              Scheda Tecnica
-            </button>
-            <button 
-              onClick={() => setShowAlbum(true)}
-              className="text-[9px] font-black text-purple-400 hover:text-white uppercase tracking-widest flex items-center gap-1.5 transition-all bg-purple-600/10 hover:bg-purple-600 px-3 py-2 rounded-xl border border-purple-500/20"
-            >
-              <i className="fa-solid fa-images"></i>
-              Album Foto
-            </button>
+          {/* Toolbar Pulsanti: Allineamento perfetto sulla stessa riga */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowSpecs(true)}
+                className="text-[9px] font-black text-blue-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-all bg-blue-600/10 hover:bg-blue-600 px-4 py-3 rounded-xl border border-blue-500/20"
+              >
+                <i className="fa-solid fa-file-invoice"></i>
+                <span className="hidden sm:inline">Scheda Tecnica</span>
+                <span className="sm:hidden">Scheda</span>
+              </button>
+              <button 
+                onClick={() => setShowAlbum(true)}
+                className="text-[9px] font-black text-purple-400 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-all bg-purple-600/10 hover:bg-purple-600 px-4 py-3 rounded-xl border border-purple-500/20"
+              >
+                <i className="fa-solid fa-images"></i>
+                <span className="hidden sm:inline">Album Foto</span>
+                <span className="sm:hidden">Album</span>
+              </button>
+            </div>
             
             <div className="flex items-center gap-2 ml-auto">
               <button 
                 onClick={() => onEdit(bike)}
-                className="text-slate-500 hover:text-blue-400 h-9 w-9 flex items-center justify-center bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-all border border-slate-700"
+                className="text-slate-500 hover:text-blue-400 h-10 w-10 flex items-center justify-center bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-all border border-slate-700"
                 title="Modifica"
               >
                 <i className="fa-solid fa-pen-to-square text-xs"></i>
               </button>
               <button 
                 onClick={() => onDelete(bike)}
-                className="text-slate-500 hover:text-red-400 h-9 w-9 flex items-center justify-center bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-all border border-slate-700"
+                className="text-slate-500 hover:text-red-400 h-10 w-10 flex items-center justify-center bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-all border border-slate-700"
                 title="Elimina"
               >
                 <i className="fa-solid fa-trash text-xs"></i>
