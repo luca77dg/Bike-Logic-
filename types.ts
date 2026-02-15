@@ -43,6 +43,16 @@ export interface MaintenanceRecord {
   notes?: string;
 }
 
+export interface MaintenanceHistory {
+  id: string;
+  bike_id: string;
+  component_name: string;
+  replaced_at_km: number;
+  distance_covered: number;
+  notes?: string;
+  replacement_date: string;
+}
+
 export interface StravaTokenResponse {
   access_token: string;
   refresh_token: string;

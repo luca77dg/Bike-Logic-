@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS bikes (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabella Maintenance per il tracciamento dei componenti
+-- Tabella Maintenance per il tracciamento dei componenti attuali
 CREATE TABLE IF NOT EXISTS maintenance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bike_id UUID REFERENCES bikes(id) ON DELETE CASCADE,
@@ -27,6 +27,18 @@ CREATE TABLE IF NOT EXISTS maintenance (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- NUOVA: Tabella Storico Sostituzioni
+CREATE TABLE IF NOT EXISTS maintenance_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bike_id UUID REFERENCES bikes(id) ON DELETE CASCADE,
+  component_name TEXT NOT NULL,
+  replaced_at_km FLOAT NOT NULL,
+  distance_covered FLOAT NOT NULL,
+  notes TEXT,
+  replacement_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Indici per performance
 CREATE INDEX IF NOT EXISTS idx_maintenance_bike_id ON maintenance(bike_id);
+CREATE INDEX IF NOT EXISTS idx_maintenance_history_bike_id ON maintenance_history(bike_id);
 CREATE INDEX IF NOT EXISTS idx_bikes_user_id ON bikes(user_id);

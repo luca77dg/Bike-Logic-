@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Bike, MaintenanceRecord } from '../types.ts';
+import { Bike, MaintenanceRecord, MaintenanceHistory } from '../types.ts';
 import { analyzeBikePart } from '../services/gemini.ts';
 import { supabaseService } from '../services/supabase.ts';
 
@@ -59,6 +59,20 @@ export const AIVision: React.FC<AIVisionProps> = ({ bike, records, onUpdate, onC
         return;
       }
 
+      // 1. Salva nello storico
+      const kmPercorsi = Math.max(0, resetKm - record.km_at_install);
+      const historyRecord: MaintenanceHistory = {
+        id: crypto.randomUUID(),
+        bike_id: bike.id,
+        component_name: record.component_name,
+        replaced_at_km: resetKm,
+        distance_covered: kmPercorsi,
+        notes: `Sostituzione guidata da analisi IA. ${record.notes || ''}`,
+        replacement_date: new Date().toISOString()
+      };
+      await supabaseService.addHistoryRecord(historyRecord);
+
+      // 2. Aggiorna record attuale
       const updated = { 
         ...record, 
         km_at_install: resetKm,
@@ -66,7 +80,7 @@ export const AIVision: React.FC<AIVisionProps> = ({ bike, records, onUpdate, onC
       };
       await supabaseService.saveMaintenance(updated);
       onUpdate();
-      alert("Manutenzione registrata con successo!");
+      alert("Manutenzione registrata e salvata nello storico!");
       onClose();
     }
   };

@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Bike, MaintenanceRecord } from '../types.ts';
+import { Bike, MaintenanceRecord, MaintenanceHistory } from '../types.ts';
 
 const supabaseUrl = (
   (import.meta as any).env?.VITE_SUPABASE_URL || 
@@ -104,6 +104,39 @@ export const supabaseService = {
     } catch (err: any) {
       console.error("Delete Maint Error:", err.message);
       throw err;
+    }
+  },
+
+  // METODI PER LO STORICO
+  getHistory: async (bikeId: string): Promise<MaintenanceHistory[]> => {
+    if (!supabase) {
+      const data = localStorage.getItem('bikelogic_history');
+      const all: MaintenanceHistory[] = data ? JSON.parse(data) : [];
+      return all.filter(h => h.bike_id === bikeId).sort((a,b) => new Date(b.replacement_date).getTime() - new Date(a.replacement_date).getTime());
+    }
+    try {
+      const { data, error } = await supabase
+        .from('maintenance_history')
+        .select('*')
+        .eq('bike_id', bikeId)
+        .order('replacement_date', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  addHistoryRecord: async (record: MaintenanceHistory): Promise<void> => {
+    const data = localStorage.getItem('bikelogic_history');
+    const all: MaintenanceHistory[] = data ? JSON.parse(data) : [];
+    localStorage.setItem('bikelogic_history', JSON.stringify([record, ...all]));
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from('maintenance_history').insert(record);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("History Save Error:", err.message);
     }
   },
 
