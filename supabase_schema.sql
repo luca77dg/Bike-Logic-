@@ -53,7 +53,7 @@ ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wishlist ENABLE ROW LEVEL SECURITY;
 
--- 3. Reset Policy per Advisor
+-- 3. Reset Policy Totale
 DROP POLICY IF EXISTS "Public Access" ON bikes;
 DROP POLICY IF EXISTS "Public Access" ON maintenance;
 DROP POLICY IF EXISTS "Public Access" ON maintenance_history;
@@ -64,7 +64,22 @@ DROP POLICY IF EXISTS "bikes_insert" ON bikes;
 DROP POLICY IF EXISTS "bikes_update" ON bikes;
 DROP POLICY IF EXISTS "bikes_delete" ON bikes;
 
--- 4. Nuove Policy Scomposte (Zero Warning)
+DROP POLICY IF EXISTS "maint_select" ON maintenance;
+DROP POLICY IF EXISTS "maint_insert" ON maintenance;
+DROP POLICY IF EXISTS "maint_update" ON maintenance;
+DROP POLICY IF EXISTS "maint_delete" ON maintenance;
+
+DROP POLICY IF EXISTS "hist_select" ON maintenance_history;
+DROP POLICY IF EXISTS "hist_insert" ON maintenance_history;
+DROP POLICY IF EXISTS "hist_update" ON maintenance_history;
+DROP POLICY IF EXISTS "hist_delete" ON maintenance_history;
+
+DROP POLICY IF EXISTS "wish_select" ON wishlist;
+DROP POLICY IF EXISTS "wish_insert" ON wishlist;
+DROP POLICY IF EXISTS "wish_update" ON wishlist;
+DROP POLICY IF EXISTS "wish_delete" ON wishlist;
+
+-- 4. Nuove Policy Scomposte e Specifiche (Advisor Safe)
 
 -- BIKES
 CREATE POLICY "bikes_select" ON bikes FOR SELECT USING (true);
@@ -74,15 +89,15 @@ CREATE POLICY "bikes_delete" ON bikes FOR DELETE USING (user_id = 'bikelogic_glo
 
 -- MAINTENANCE
 CREATE POLICY "maint_select" ON maintenance FOR SELECT USING (true);
-CREATE POLICY "maint_insert" ON maintenance FOR INSERT WITH CHECK (true);
-CREATE POLICY "maint_update" ON maintenance FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY "maint_delete" ON maintenance FOR DELETE USING (true);
+CREATE POLICY "maint_insert" ON maintenance FOR INSERT WITH CHECK (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user'));
+CREATE POLICY "maint_update" ON maintenance FOR UPDATE USING (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user')) WITH CHECK (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user'));
+CREATE POLICY "maint_delete" ON maintenance FOR DELETE USING (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user'));
 
 -- HISTORY
 CREATE POLICY "hist_select" ON maintenance_history FOR SELECT USING (true);
-CREATE POLICY "hist_insert" ON maintenance_history FOR INSERT WITH CHECK (true);
-CREATE POLICY "hist_update" ON maintenance_history FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY "hist_delete" ON maintenance_history FOR DELETE USING (true);
+CREATE POLICY "hist_insert" ON maintenance_history FOR INSERT WITH CHECK (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user'));
+CREATE POLICY "hist_update" ON maintenance_history FOR UPDATE USING (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user')) WITH CHECK (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user'));
+CREATE POLICY "hist_delete" ON maintenance_history FOR DELETE USING (bike_id IN (SELECT id FROM bikes WHERE user_id = 'bikelogic_global_user'));
 
 -- WISHLIST
 CREATE POLICY "wish_select" ON wishlist FOR SELECT USING (true);
