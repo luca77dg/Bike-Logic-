@@ -22,6 +22,15 @@ export const supabase = (supabaseUrl && supabaseAnonKey && supabaseUrl.startsWit
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+const handleSupabaseError = (err: any, tableName: string) => {
+  if (err.message?.includes("Could not find the table") || err.code === "PGRST116") {
+    const msg = `ERRORE DATABASE: La tabella '${tableName}' non esiste su Supabase. \n\nEsegui il codice SQL fornito nel file 'supabase_schema.sql' per attivarla.`;
+    console.error(msg);
+    alert(msg);
+  }
+  throw err;
+};
+
 export const supabaseService = {
   isConfigured: () => !!supabase,
 
@@ -40,7 +49,7 @@ export const supabaseService = {
       if (data) localStorage.setItem('bikelogic_bikes', JSON.stringify(data));
       return data || [];
     } catch (err: any) {
-      console.error("Cloud Fetch Error:", err.message);
+      console.error("Cloud Fetch Bikes Error:", err.message);
       const local = localStorage.getItem('bikelogic_bikes');
       return local ? JSON.parse(local) : [];
     }
@@ -56,8 +65,7 @@ export const supabaseService = {
       const { error } = await supabase.from('bikes').upsert(bikeToSave, { onConflict: 'id' });
       if (error) throw error;
     } catch (err: any) {
-      console.error("Cloud Save Error:", err.message);
-      throw err;
+      handleSupabaseError(err, 'bikes');
     }
   },
 
@@ -86,8 +94,7 @@ export const supabaseService = {
       const { error } = await supabase.from('maintenance').upsert(record, { onConflict: 'id' });
       if (error) throw error;
     } catch (err: any) {
-      console.error("Maint Cloud Error:", err.message);
-      throw err;
+      handleSupabaseError(err, 'maintenance');
     }
   },
 
@@ -102,12 +109,10 @@ export const supabaseService = {
       const { error } = await supabase.from('maintenance').delete().eq('id', id);
       if (error) throw error;
     } catch (err: any) {
-      console.error("Delete Maint Error:", err.message);
-      throw err;
+      handleSupabaseError(err, 'maintenance');
     }
   },
 
-  // METODI PER LO STORICO (Sincronizzati Cloud)
   getHistory: async (bikeId: string): Promise<MaintenanceHistory[]> => {
     if (!supabase) {
       const data = localStorage.getItem('bikelogic_history');
@@ -122,8 +127,11 @@ export const supabaseService = {
         .order('replacement_date', { ascending: false });
       if (error) throw error;
       return data || [];
-    } catch {
-      return [];
+    } catch (err: any) {
+      console.error("History Fetch Error:", err.message);
+      const data = localStorage.getItem('bikelogic_history');
+      const all: MaintenanceHistory[] = data ? JSON.parse(data) : [];
+      return all.filter(h => h.bike_id === bikeId);
     }
   },
 
@@ -137,8 +145,7 @@ export const supabaseService = {
       const { error } = await supabase.from('maintenance_history').upsert(record, { onConflict: 'id' });
       if (error) throw error;
     } catch (err: any) {
-      console.error("History Cloud Error:", err.message);
-      throw err;
+      handleSupabaseError(err, 'maintenance_history');
     }
   },
 
@@ -153,8 +160,7 @@ export const supabaseService = {
       const { error } = await supabase.from('maintenance_history').delete().eq('id', id);
       if (error) throw error;
     } catch (err: any) {
-      console.error("Delete History Error:", err.message);
-      throw err;
+      handleSupabaseError(err, 'maintenance_history');
     }
   },
 

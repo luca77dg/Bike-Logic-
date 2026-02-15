@@ -32,7 +32,6 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [history, setHistory] = useState<MaintenanceHistory[]>([]);
   
-  // State for current component form
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLimit, setNewLimit] = useState(3000);
@@ -41,7 +40,6 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // State for history editing/manual adding
   const [editingHistory, setEditingHistory] = useState<MaintenanceHistory | null>(null);
   const [isAddingManualHistory, setIsAddingManualHistory] = useState(false);
 
@@ -56,6 +54,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
     try {
       const data = await supabaseService.getHistory(bike.id);
       setHistory(data);
+    } catch (err) {
+      console.error("History loading failed");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -82,7 +82,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
       setIsAdding(false);
       onUpdate();
     } catch (err: any) {
-      alert("Errore nel salvataggio: " + err.message);
+      console.error("Save Error:", err.message);
     } finally {
       setIsSaving(false);
     }
@@ -101,15 +101,15 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
         replaced_at_km: parseFloat(formData.get('h_km') as string),
         distance_covered: parseFloat(formData.get('h_dist') as string),
         notes: formData.get('h_notes') as string,
-        replacement_date: formData.get('h_date') as string
+        replacement_date: new Date(formData.get('h_date') as string).toISOString()
       };
       
       await supabaseService.saveHistoryRecord(record);
       setEditingHistory(null);
       setIsAddingManualHistory(false);
-      loadHistory();
+      await loadHistory();
     } catch (err: any) {
-      alert("Errore nel salvataggio storico: " + err.message);
+      console.error("History Save Error:", err.message);
     } finally {
       setIsSaving(false);
     }
@@ -117,7 +117,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
 
   const handleReset = async (record: MaintenanceRecord) => {
     const customKm = window.prompt(
-      `Confermi la sostituzione di: ${record.component_name}?\nInserisci i km della bici al momento della sostituzione:`,
+      `Sostituzione di: ${record.component_name}\nA che km della bici hai fatto il cambio?`,
       bike.total_km.toString()
     );
     
@@ -132,18 +132,22 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
         component_name: record.component_name,
         replaced_at_km: resetKm,
         distance_covered: kmPercorsi,
-        notes: record.notes || '',
+        notes: `Sostituzione programmata (${record.notes || 'nessuna nota'})`,
         replacement_date: new Date().toISOString()
       };
       
-      await supabaseService.saveHistoryRecord(historyRecord);
-      await supabaseService.saveMaintenance({ 
-        ...record, 
-        km_at_install: resetKm,
-        last_check_km: resetKm 
-      });
-      onUpdate();
-      alert(`Sostituzione registrata!`);
+      try {
+        await supabaseService.saveHistoryRecord(historyRecord);
+        await supabaseService.saveMaintenance({ 
+          ...record, 
+          km_at_install: resetKm,
+          last_check_km: resetKm 
+        });
+        onUpdate();
+        alert(`Sostituzione salvata correttamente!`);
+      } catch (err) {
+        console.error("Reset failed");
+      }
     }
   };
 
@@ -171,7 +175,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
               <i className="fa-solid fa-screwdriver-wrench text-orange-500"></i>
             </div>
             <div>
-              <h2 className="text-xl font-black text-white">Gestione Componenti</h2>
+              <h2 className="text-xl font-black text-white">Componenti</h2>
               <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{bike.name}</p>
             </div>
           </div>
@@ -183,13 +187,13 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
         <div className="flex bg-slate-950/50 p-1.5 mx-6 mt-4 rounded-2xl border border-slate-800 shrink-0">
           <button 
             onClick={() => setActiveTab('current')}
-            className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'current' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'current' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-500 hover:text-slate-300'}`}
           >
             Attivi
           </button>
           <button 
             onClick={() => setActiveTab('history')}
-            className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'history' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'history' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-500 hover:text-slate-300'}`}
           >
             Storico
           </button>
@@ -200,7 +204,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
             <>
               {isAdding ? (
                 <div className="mb-8 animate-in slide-in-from-top-4 duration-300">
-                  <form onSubmit={handleAddComponent} className="p-6 bg-slate-800/50 rounded-3xl border border-blue-500/30 space-y-4 shadow-xl shadow-blue-900/10">
+                  <form onSubmit={handleAddComponent} className="p-6 bg-slate-800/50 rounded-3xl border border-blue-500/30 space-y-4 shadow-xl">
                     <h3 className="text-xs font-black text-white uppercase tracking-widest mb-2">Nuovo Componente</h3>
                     <div>
                       <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1 ml-1">Nome</label>
@@ -243,7 +247,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                   className="w-full mb-8 py-5 bg-slate-800/50 hover:bg-slate-800 border border-dashed border-slate-700 rounded-2xl flex items-center justify-center gap-3 text-slate-400 hover:text-blue-400 transition-all"
                 >
                   <i className="fa-solid fa-plus text-xs"></i>
-                  <span className="text-[10px] font-black uppercase tracking-widest">Traccia nuovo componente</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Aggiungi componente</span>
                 </button>
               )}
 
@@ -262,13 +266,13 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                             <span className={`text-[10px] font-black ${isCritical ? 'text-red-400' : 'text-blue-400'}`}>{wearPercentage}%</span>
                           </div>
                           <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-blue-600 to-blue-400" style={{ width: `${wearPercentage}%` }}></div>
+                            <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400" style={{ width: `${wearPercentage}%` }}></div>
                           </div>
                         </div>
                         <div className="flex gap-2 shrink-0">
                           <button onClick={() => handleReset(record)} className="h-10 px-4 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl border border-blue-600/20 transition-all flex items-center gap-2">
                             <i className="fa-solid fa-rotate text-xs"></i>
-                            <span className="text-[9px] font-black uppercase tracking-widest">Sostituisci</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest">Reset</span>
                           </button>
                           <button onClick={() => handleDeleteCurrent(record.id)} className="h-10 w-10 bg-slate-800 text-slate-500 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <i className="fa-solid fa-trash-can text-xs"></i>
@@ -278,57 +282,55 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                     </div>
                   );
                 }) : (
-                  <div className="text-center py-10 opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">Nessun componente in lista</p></div>
+                  <div className="text-center py-10 opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">Nessun componente</p></div>
                 )}
               </div>
             </>
           ) : (
             <div className="space-y-6 animate-in fade-in duration-500">
-              {/* Bottone Aggiungi Manuale Storico */}
               {!isAddingManualHistory && !editingHistory && (
                 <button 
                   onClick={() => setIsAddingManualHistory(true)}
                   className="w-full py-4 bg-purple-600/10 border border-dashed border-purple-600/40 rounded-2xl flex items-center justify-center gap-3 text-purple-400 hover:bg-purple-600/20 transition-all"
                 >
                   <i className="fa-solid fa-calendar-plus text-xs"></i>
-                  <span className="text-[10px] font-black uppercase tracking-widest">Aggiungi intervento passato</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Nuovo intervento storico</span>
                 </button>
               )}
 
-              {/* Form Aggiungi/Modifica Storico */}
               {(isAddingManualHistory || editingHistory) && (
                 <form onSubmit={handleSaveHistory} className="p-6 bg-slate-800 border border-purple-500/30 rounded-3xl space-y-4 shadow-xl">
                   <h3 className="text-xs font-black text-purple-400 uppercase tracking-widest mb-2">
-                    {editingHistory ? 'Modifica Intervento' : 'Nuovo Intervento Passato'}
+                    {editingHistory ? 'Modifica Intervento' : 'Intervento Passato'}
                   </h3>
                   <div>
-                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Componente</label>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Parte Sostituita</label>
                     <input name="h_name" defaultValue={editingHistory?.component_name || ''} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Data</label>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Data Cambio</label>
                       <input name="h_date" type="date" defaultValue={editingHistory?.replacement_date.split('T')[0] || new Date().toISOString().split('T')[0]} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
                     </div>
                     <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Km Bici</label>
-                      <input name="h_km" type="number" defaultValue={editingHistory?.replaced_at_km || bike.total_km} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Km Bici al cambio</label>
+                      <input name="h_km" type="number" step="0.1" defaultValue={editingHistory?.replaced_at_km || bike.total_km} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Durata Parte (km)</label>
-                      <input name="h_dist" type="number" defaultValue={editingHistory?.distance_covered || 0} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Km Percorsi (Uso)</label>
+                      <input name="h_dist" type="number" step="0.1" defaultValue={editingHistory?.distance_covered || 0} required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" />
                     </div>
                     <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Note</label>
-                      <input name="h_notes" defaultValue={editingHistory?.notes || ''} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" placeholder="Opzionale..." />
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Note / Brand</label>
+                      <input name="h_notes" defaultValue={editingHistory?.notes || ''} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm" placeholder="Es: Shimano Ultegra..." />
                     </div>
                   </div>
                   <div className="flex gap-3 pt-2">
                     <button type="button" onClick={() => { setEditingHistory(null); setIsAddingManualHistory(false); }} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase">Annulla</button>
                     <button type="submit" disabled={isSaving} className="flex-[2] py-3 bg-purple-600 text-white text-xs font-black rounded-xl uppercase tracking-widest shadow-lg">
-                      {isSaving ? 'Salvataggio...' : 'Salva'}
+                      {isSaving ? 'Salvataggio...' : 'Salva Storico'}
                     </button>
                   </div>
                 </form>
@@ -337,33 +339,38 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
               {isLoadingHistory ? (
                 <div className="py-20 text-center"><i className="fa-solid fa-spinner fa-spin text-2xl text-purple-500"></i></div>
               ) : history.length > 0 ? (
-                history.map((item) => (
-                  <div key={item.id} className="p-6 bg-slate-800/20 border border-slate-700/30 rounded-3xl relative group">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <h4 className="text-lg font-black text-white leading-none mb-1">{item.component_name}</h4>
-                        <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">
-                          {new Date(item.replacement_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingHistory(item)} className="h-9 w-9 bg-slate-800 text-slate-400 hover:text-blue-400 rounded-xl border border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
-                          <i className="fa-solid fa-pen text-[10px]"></i>
-                        </button>
-                        <button onClick={() => handleDeleteHistory(item.id)} className="h-9 w-9 bg-slate-800 text-slate-400 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
-                          <i className="fa-solid fa-trash text-[10px]"></i>
-                        </button>
-                        <div className="text-right">
-                          <p className="text-xl font-black text-white leading-none">+{item.distance_covered.toLocaleString()} <span className="text-[9px] text-slate-500">km</span></p>
+                <div className="space-y-4 pb-10">
+                  {history.map((item) => (
+                    <div key={item.id} className="p-6 bg-slate-800/20 border border-slate-700/30 rounded-3xl relative group hover:border-purple-500/20 transition-all">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <h4 className="text-lg font-black text-white leading-none mb-1">{item.component_name}</h4>
+                          <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">
+                            {new Date(item.replacement_date).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => setEditingHistory(item)} className="h-9 w-9 bg-slate-800 text-slate-400 hover:text-blue-400 rounded-xl border border-slate-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                            <i className="fa-solid fa-pen text-[10px]"></i>
+                          </button>
+                          <button onClick={() => handleDeleteHistory(item.id)} className="h-9 w-9 bg-slate-800 text-slate-400 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                            <i className="fa-solid fa-trash text-[10px]"></i>
+                          </button>
+                          <div className="text-right">
+                            <p className="text-xl font-black text-white leading-none">+{item.distance_covered.toLocaleString()} <span className="text-[9px] text-slate-500">km</span></p>
+                          </div>
                         </div>
                       </div>
+                      {item.notes && <p className="text-xs text-slate-400 italic bg-black/20 p-3 rounded-xl border border-white/5">{item.notes}</p>}
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mt-3 flex items-center gap-2">
+                        <i className="fa-solid fa-gauge-high opacity-50"></i>
+                        Sostituito a {item.replaced_at_km.toLocaleString()} km totali della bici
+                      </p>
                     </div>
-                    {item.notes && <p className="text-xs text-slate-400 italic bg-black/20 p-3 rounded-xl border border-white/5">{item.notes}</p>}
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mt-3">Sostituito a {item.replaced_at_km.toLocaleString()} km totali</p>
-                  </div>
-                ))
+                  ))}
+                </div>
               ) : (
-                <div className="text-center py-20 opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">Nessuno storico disponibile</p></div>
+                <div className="text-center py-20 opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">Nessuno storico</p></div>
               )}
             </div>
           )}

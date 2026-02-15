@@ -1,11 +1,13 @@
 
--- Estensione per UUID se non presente
+-- ESEGUI QUESTO CODICE NEL "SQL EDITOR" DI SUPABASE --
+
+-- Estensione per UUID
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Tabella Bikes aggiornata con supporto a dati complessi (JSONB)
+-- Tabella Bikes
 CREATE TABLE IF NOT EXISTS bikes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL DEFAULT 'default-rider',
+  user_id TEXT NOT NULL DEFAULT 'bikelogic_global_user',
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('Corsa', 'Gravel', 'MTB')),
   strava_gear_id TEXT,
@@ -15,7 +17,7 @@ CREATE TABLE IF NOT EXISTS bikes (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabella Maintenance per il tracciamento dei componenti attuali
+-- Tabella Maintenance (Componenti Attuali)
 CREATE TABLE IF NOT EXISTS maintenance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bike_id UUID REFERENCES bikes(id) ON DELETE CASCADE,
@@ -27,7 +29,7 @@ CREATE TABLE IF NOT EXISTS maintenance (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- NUOVA: Tabella Storico Sostituzioni
+-- Tabella Storico Sostituzioni (Interventi Passati)
 CREATE TABLE IF NOT EXISTS maintenance_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bike_id UUID REFERENCES bikes(id) ON DELETE CASCADE,
