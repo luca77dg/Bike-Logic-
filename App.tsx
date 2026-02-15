@@ -97,7 +97,8 @@ const App: React.FC = () => {
     }
 
     const envKey = process.env.API_KEY;
-    setHasApiKey(!!(envKey && envKey !== 'undefined' && envKey !== 'null' && envKey.trim() !== ''));
+    const keyValid = !!(envKey && envKey !== 'undefined' && envKey !== 'null' && envKey.trim() !== '');
+    setHasApiKey(keyValid);
   }, [syncBikesWithStrava]);
 
   useEffect(() => {
@@ -190,22 +191,32 @@ const App: React.FC = () => {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
             <div>
               <h2 className="text-3xl font-black text-white">Il Tuo Garage</h2>
-              <div className="flex flex-wrap gap-2 mt-3">
+              <div className="flex flex-wrap gap-2 mt-3 items-center">
                 {isCloudEnabled && (
-                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full h-[26px]">
                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
                     <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Cloud Sync</span>
                   </div>
                 )}
+                
+                {/* Indicatore Stato IA */}
+                <div className={`flex items-center gap-2 px-3 py-1 rounded-full h-[26px] border ${hasApiKey ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-slate-800/50 border-slate-700'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${hasApiKey ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`}></span>
+                  <span className={`text-[9px] font-black uppercase tracking-widest ${hasApiKey ? 'text-emerald-400' : 'text-slate-500'}`}>AI Vision</span>
+                </div>
+
                 {isStravaConfigured && (
                   stravaAthlete ? (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full h-[26px]">
                       <i className="fa-brands fa-strava text-[9px] text-orange-500"></i>
                       <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest">Linked</span>
                     </div>
                   ) : (
-                    <button onClick={() => window.location.href = stravaService.getAuthUrl()} className="px-3 py-1 bg-slate-800 border border-orange-500/30 rounded-full hover:bg-orange-600 transition-all">
-                      <span className="text-[9px] font-black text-white uppercase tracking-widest">Link Strava</span>
+                    <button 
+                      onClick={() => window.location.href = stravaService.getAuthUrl()} 
+                      className="px-3 py-1 bg-slate-800 border border-orange-500/30 rounded-full hover:bg-orange-600 transition-all inline-flex items-center justify-center h-[26px] align-middle"
+                    >
+                      <span className="text-[9px] font-black text-white uppercase tracking-widest leading-none">Link Strava</span>
                     </button>
                   )
                 )}
