@@ -251,38 +251,68 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ bike, re
                 </button>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-4 pb-8">
                 {records.length > 0 ? records.sort((a,b) => b.km_at_install - a.km_at_install).map(record => {
                   const kmSinceInstall = Math.max(0, bike.total_km - record.km_at_install);
                   const wearPercentage = Math.min(Math.round((kmSinceInstall / record.lifespan_limit) * 100), 100);
                   const isCritical = wearPercentage > 85;
 
                   return (
-                    <div key={record.id} className="p-5 bg-slate-800/30 border border-slate-700/50 rounded-2xl flex flex-col group hover:border-blue-500/20 transition-all">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex-1 min-w-0 mr-4">
-                          <div className="flex justify-between items-end mb-2">
-                            <span className="text-sm font-bold text-white truncate">{record.component_name}</span>
-                            <span className={`text-[10px] font-black ${isCritical ? 'text-red-400' : 'text-blue-400'}`}>{wearPercentage}%</span>
-                          </div>
-                          <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400" style={{ width: `${wearPercentage}%` }}></div>
-                          </div>
+                    <div key={record.id} className="p-6 bg-slate-800/30 border border-slate-700/50 rounded-[2rem] space-y-5 group hover:border-blue-500/20 transition-all relative overflow-hidden shadow-inner">
+                      {/* Component Info */}
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 pr-4">
+                          <h4 className="text-[13px] font-black text-white leading-tight break-words uppercase tracking-tight">
+                            {record.component_name}
+                          </h4>
+                          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
+                            <i className="fa-solid fa-gauge-high opacity-50"></i>
+                            Installato a {record.km_at_install.toLocaleString()} km
+                          </p>
                         </div>
-                        <div className="flex gap-2 shrink-0">
-                          <button onClick={() => handleReset(record)} className="h-10 px-4 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl border border-blue-600/20 transition-all flex items-center gap-2">
-                            <i className="fa-solid fa-rotate text-xs"></i>
-                            <span className="text-[9px] font-black uppercase tracking-widest">Reset</span>
-                          </button>
-                          <button onClick={() => handleDeleteCurrent(record.id)} className="h-10 w-10 bg-slate-800 text-slate-500 hover:text-red-500 rounded-xl border border-slate-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <i className="fa-solid fa-trash-can text-xs"></i>
-                          </button>
+                        <div className={`text-[11px] font-black px-3 py-1.5 rounded-xl border ${isCritical ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                          {wearPercentage}%
                         </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="space-y-2">
+                        <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-1000 ${isCritical ? 'bg-gradient-to-r from-red-600 to-orange-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)]'}`} 
+                            style={{ width: `${wearPercentage}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-[8px] font-black text-slate-600 uppercase tracking-widest px-1">
+                          <span>Nuovo</span>
+                          <span>Limite {record.lifespan_limit.toLocaleString()}km</span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-3 pt-1">
+                        <button 
+                          onClick={() => handleReset(record)} 
+                          className="flex-1 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-xl shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+                        >
+                          <i className="fa-solid fa-rotate text-[10px]"></i>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Sostituito</span>
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteCurrent(record.id)} 
+                          className="h-12 w-12 bg-slate-900 text-slate-600 hover:text-red-500 rounded-2xl border border-slate-750 flex items-center justify-center transition-all active:scale-95"
+                          title="Elimina"
+                        >
+                          <i className="fa-solid fa-trash-can text-xs"></i>
+                        </button>
                       </div>
                     </div>
                   );
                 }) : (
-                  <div className="text-center py-10 opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">Nessun componente</p></div>
+                  <div className="text-center py-20 opacity-30">
+                    <i className="fa-solid fa-box-open text-4xl mb-4 text-slate-700"></i>
+                    <p className="text-[10px] font-black uppercase tracking-widest">Nessun componente tracciato</p>
+                  </div>
                 )}
               </div>
             </>
