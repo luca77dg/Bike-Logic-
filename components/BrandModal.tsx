@@ -32,7 +32,7 @@ export const BrandModal: React.FC<BrandModalProps> = ({ onClose }) => {
           imageConfig: {
             aspectRatio: "1:1"
           },
-        },
+        } as any,
       });
 
       for (const part of response.candidates[0].content.parts) {
@@ -96,3 +96,32 @@ export const BrandModal: React.FC<BrandModalProps> = ({ onClose }) => {
               <button 
                 onClick={generateIcon}
                 disabled={isGenerating}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-3"
+              >
+                <i className="fa-solid fa-wand-magic-sparkles"></i>
+                {isGenerating ? 'Generazione in corso...' : 'Genera Icona App'}
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3 w-full">
+                <button 
+                  onClick={downloadIcon}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-5 rounded-2xl shadow-xl transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-3"
+                >
+                  <i className="fa-solid fa-download"></i>
+                  Scarica Icona
+                </button>
+                <button 
+                  onClick={() => setGeneratedIcon(null)}
+                  className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
+                >
+                  <i className="fa-solid fa-rotate-left"></i>
+                  Genera un'altra
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

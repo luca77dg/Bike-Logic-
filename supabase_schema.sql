@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS wishlist (
   name TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'Accessori',
   is_purchased BOOLEAN DEFAULT FALSE,
+  priority INTEGER DEFAULT 2,
   price_estimate FLOAT,
   product_url TEXT,
   notes TEXT,

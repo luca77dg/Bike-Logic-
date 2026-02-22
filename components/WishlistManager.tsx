@@ -31,6 +31,7 @@ export const WishlistManager: React.FC = () => {
   const [newPrice, setNewPrice] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newPriority, setNewPriority] = useState<number>(2); // Default Media
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export const WishlistManager: React.FC = () => {
     setNewUrl('');
     setNewNotes('');
     setNewCat('Accessori');
+    setNewPriority(2);
     setEditingItem(null);
     setShowForm(false);
   };
@@ -85,6 +87,7 @@ export const WishlistManager: React.FC = () => {
       name: newName,
       category: newCat,
       is_purchased: editingItem ? editingItem.is_purchased : false,
+      priority: newPriority,
       price_estimate: newPrice ? parseFloat(newPrice) : undefined,
       product_url: newUrl || undefined,
       notes: newNotes || undefined,
@@ -104,6 +107,7 @@ export const WishlistManager: React.FC = () => {
     setNewPrice(item.price_estimate?.toString() || '');
     setNewUrl(item.product_url || '');
     setNewNotes(item.notes || '');
+    setNewPriority(item.priority || 2);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -121,11 +125,13 @@ export const WishlistManager: React.FC = () => {
     }
   };
 
-  const filteredItems = items.filter(i => {
-    if (filterPurchased === 'pending') return !i.is_purchased;
-    if (filterPurchased === 'bought') return i.is_purchased;
-    return true;
-  });
+  const filteredItems = items
+    .filter(i => {
+      if (filterPurchased === 'pending') return !i.is_purchased;
+      if (filterPurchased === 'bought') return i.is_purchased;
+      return true;
+    })
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -184,6 +190,26 @@ export const WishlistManager: React.FC = () => {
                   placeholder="https://..."
                 />
               </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 ml-1">Priorità / Urgenza</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { val: 1, label: 'Bassa', color: 'bg-slate-800 text-slate-400' },
+                    { val: 2, label: 'Media', color: 'bg-blue-900/30 text-blue-400' },
+                    { val: 3, label: 'Alta', color: 'bg-orange-900/30 text-orange-400' },
+                    { val: 4, label: 'Urgente', color: 'bg-red-900/30 text-red-400' },
+                  ].map(p => (
+                    <button
+                      key={p.val}
+                      type="button"
+                      onClick={() => setNewPriority(p.val)}
+                      className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${newPriority === p.val ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-800'}`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex gap-3">
@@ -240,7 +266,19 @@ export const WishlistManager: React.FC = () => {
                     </div>
                     <div>
                       <h4 className={`font-black text-white leading-tight ${item.is_purchased ? 'line-through decoration-blue-500' : ''}`}>{item.name}</h4>
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{item.category}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{item.category}</p>
+                        {!item.is_purchased && (
+                          <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter ${
+                            item.priority === 4 ? 'bg-red-500/20 text-red-400' :
+                            item.priority === 3 ? 'bg-orange-500/20 text-orange-400' :
+                            item.priority === 2 ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-slate-800 text-slate-500'
+                          }`}>
+                            {item.priority === 4 ? 'Urgente' : item.priority === 3 ? 'Alta' : item.priority === 2 ? 'Media' : 'Bassa'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <button 

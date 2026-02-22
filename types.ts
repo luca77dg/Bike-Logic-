@@ -61,6 +61,7 @@ export interface WishlistItem {
   name: string;
   category: WishlistCategory;
   is_purchased: boolean;
+  priority: number; // 1: Bassa, 2: Media, 3: Alta, 4: Urgente
   price_estimate?: number;
   product_url?: string;
   notes?: string;
