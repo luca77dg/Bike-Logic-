@@ -184,6 +184,23 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateKm = async (bike: Bike) => {
+    if (bike.strava_gear_id) {
+      setIsSyncing(true);
+      await checkStatus(true);
+      setIsSyncing(false);
+    } else {
+      const newKm = prompt("Inserisci i nuovi chilometri totali:", bike.total_km.toString());
+      if (newKm !== null) {
+        const km = parseFloat(newKm);
+        if (!isNaN(km)) {
+          await supabaseService.saveBike({ ...bike, total_km: km });
+          fetchData();
+        }
+      }
+    }
+  };
+
   return (
     <Layout>
       {activeView === 'garage' ? (
@@ -208,8 +225,10 @@ const App: React.FC = () => {
                 {isStravaConfigured && (
                   stravaAthlete ? (
                     <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full h-[26px]">
-                      <i className="fa-brands fa-strava text-[9px] text-orange-500"></i>
-                      <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest">Linked</span>
+                      <i className={`fa-brands fa-strava text-[9px] text-orange-500 ${isSyncing ? 'animate-spin' : ''}`}></i>
+                      <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest">
+                        {isSyncing ? 'Syncing...' : 'Linked'}
+                      </span>
                     </div>
                   ) : (
                     <button 
@@ -241,7 +260,7 @@ const App: React.FC = () => {
                   key={bike.id} bike={bike} maintenance={maintenance[bike.id] || []} 
                   onAnalyze={setActiveAnalysis} 
                   onEdit={(b) => { setEditingBike(b); setCoverPhoto(b.specs?.imageUrl || null); setShowForm(true); }}
-                  onUpdateKm={fetchData} 
+                  onUpdateKm={handleUpdateKm} 
                   onDelete={async (b) => { if(confirm("Eliminare?")) { await supabaseService.deleteBike(b.id); fetchData(); } }} 
                   onRefresh={fetchData}
                 />
@@ -307,6 +326,27 @@ const App: React.FC = () => {
                     </select>
                   </div>
                 </div>
+
+                {stravaAthlete && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 ml-1">Collega a Strava</label>
+                    <select 
+                      name="strava_id" 
+                      defaultValue={editingBike?.strava_gear_id || ''} 
+                      className="w-full bg-[#161c2d] border border-slate-800 rounded-xl px-5 py-4 text-white appearance-none"
+                    >
+                      <option value="">Nessuna Bici Strava</option>
+                      {stravaAthlete.bikes?.map((sb: any) => (
+                        <option key={sb.id} value={sb.id}>
+                          {sb.name} ({Math.round(sb.distance / 1000)} km)
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-[9px] text-slate-500 font-medium italic">
+                      Seleziona la bici corrispondente su Strava per sincronizzare i chilometri automaticamente.
+                    </p>
+                  </div>
+                )}
               </div>
               <button type="submit" disabled={isExtracting} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl transition-all uppercase tracking-widest text-xs">
                 {isExtracting ? 'Elaborazione...' : 'Salva'}
