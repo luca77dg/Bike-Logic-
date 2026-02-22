@@ -81,23 +81,29 @@ export const WishlistManager: React.FC = () => {
     if (!newName.trim()) return;
     setIsSaving(true);
     
-    const item: WishlistItem = {
-      id: editingItem ? editingItem.id : crypto.randomUUID(),
-      user_id: '',
-      name: newName,
-      category: newCat,
-      is_purchased: editingItem ? editingItem.is_purchased : false,
-      priority: newPriority,
-      price_estimate: newPrice ? parseFloat(newPrice) : undefined,
-      product_url: newUrl || undefined,
-      notes: newNotes || undefined,
-      created_at: editingItem ? editingItem.created_at : new Date().toISOString()
-    };
-    
-    await supabaseService.saveWishlistItem(item);
-    resetForm();
-    setIsSaving(false);
-    loadItems();
+    try {
+      const item: WishlistItem = {
+        id: editingItem ? editingItem.id : crypto.randomUUID(),
+        user_id: '',
+        name: newName,
+        category: newCat,
+        is_purchased: editingItem ? editingItem.is_purchased : false,
+        priority: newPriority,
+        price_estimate: newPrice ? parseFloat(newPrice) : undefined,
+        product_url: newUrl || undefined,
+        notes: newNotes || undefined,
+        created_at: editingItem ? editingItem.created_at : new Date().toISOString()
+      };
+      
+      await supabaseService.saveWishlistItem(item);
+      resetForm();
+      loadItems();
+    } catch (err: any) {
+      console.error("Save wishlist error:", err);
+      alert("Errore durante il salvataggio. Se stai usando Supabase, assicurati di aver aggiunto la colonna 'priority' alla tabella 'wishlist'.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const startEdit = (item: WishlistItem) => {
