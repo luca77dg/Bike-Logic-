@@ -224,10 +224,10 @@ const App: React.FC = () => {
 
                 {isStravaConfigured && (
                   stravaAthlete ? (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full h-[26px]">
-                      <i className={`fa-brands fa-strava text-[9px] text-orange-500 ${isSyncing ? 'animate-spin' : ''}`}></i>
-                      <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest">
-                        {isSyncing ? 'Syncing...' : 'Linked'}
+                    <div className="flex items-center gap-2 px-3 py-1 bg-orange-600 border border-orange-500 rounded-full h-[26px] shadow-[0_0_15px_rgba(234,88,12,0.3)]">
+                      <i className={`fa-brands fa-strava text-[10px] text-white ${isSyncing ? 'animate-spin' : ''}`}></i>
+                      <span className="text-[9px] font-black text-white uppercase tracking-widest leading-none">
+                        {isSyncing ? 'Syncing...' : 'Strava Connected'}
                       </span>
                     </div>
                   ) : (
