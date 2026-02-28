@@ -214,5 +214,25 @@ export const supabaseService = {
     localStorage.setItem('bikelogic_bikes', JSON.stringify(bikes.filter(b => b.id !== id)));
     if (!supabase) return;
     await supabase.from('bikes').delete().eq('id', id);
+  },
+
+  getSetting: async (id: string): Promise<any> => {
+    if (!supabase) return null;
+    try {
+      const { data, error } = await supabase.from('settings').select('value').eq('id', id).eq('user_id', SHARED_USER_ID).single();
+      if (error) return null;
+      return data?.value;
+    } catch {
+      return null;
+    }
+  },
+
+  setSetting: async (id: string, value: any): Promise<void> => {
+    if (!supabase) return;
+    try {
+      await supabase.from('settings').upsert({ id, value, user_id: SHARED_USER_ID, updated_at: new Date().toISOString() });
+    } catch (err) {
+      console.error("Set setting error:", err);
+    }
   }
 };

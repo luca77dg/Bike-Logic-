@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS wishlist (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS settings (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL DEFAULT 'bikelogic_global_user',
+  value JSONB DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 2. Attivazione RLS
 ALTER TABLE bikes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
@@ -105,3 +112,7 @@ CREATE POLICY "wish_select" ON wishlist FOR SELECT USING (true);
 CREATE POLICY "wish_insert" ON wishlist FOR INSERT WITH CHECK (user_id = 'bikelogic_global_user');
 CREATE POLICY "wish_update" ON wishlist FOR UPDATE USING (user_id = 'bikelogic_global_user') WITH CHECK (user_id = 'bikelogic_global_user');
 CREATE POLICY "wish_delete" ON wishlist FOR DELETE USING (user_id = 'bikelogic_global_user');
+ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "settings_select" ON settings FOR SELECT USING (true);
+CREATE POLICY "settings_insert" ON settings FOR INSERT WITH CHECK (user_id = 'bikelogic_global_user');
+CREATE POLICY "settings_update" ON settings FOR UPDATE USING (user_id = 'bikelogic_global_user') WITH CHECK (user_id = 'bikelogic_global_user');

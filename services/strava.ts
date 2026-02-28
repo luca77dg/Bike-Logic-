@@ -1,3 +1,4 @@
+import { supabaseService } from './supabase.ts';
 
 const STRAVA_AUTH_URL = "https://www.strava.com/oauth/authorize";
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
@@ -31,6 +32,7 @@ export const stravaService = {
       const data = await response.json();
       if (data.access_token) {
         localStorage.setItem('strava_auth', JSON.stringify(data));
+        await supabaseService.setSetting('strava_auth', data);
       }
       return data;
     } catch (err) {
@@ -59,6 +61,7 @@ export const stravaService = {
       if (data.access_token) {
         const newAuth = { ...JSON.parse(auth), ...data };
         localStorage.setItem('strava_auth', JSON.stringify(newAuth));
+        await supabaseService.setSetting('strava_auth', newAuth);
         return data.access_token;
       }
     } catch (err) {
@@ -68,7 +71,17 @@ export const stravaService = {
   },
 
   getValidToken: async () => {
-    const auth = localStorage.getItem('strava_auth');
+    let auth = localStorage.getItem('strava_auth');
+    
+    // Se non c'è in localStorage, prova a prenderlo da Supabase
+    if (!auth) {
+      const cloudAuth = await supabaseService.getSetting('strava_auth');
+      if (cloudAuth) {
+        auth = JSON.stringify(cloudAuth);
+        localStorage.setItem('strava_auth', auth);
+      }
+    }
+
     if (!auth) return null;
     const { access_token, expires_at } = JSON.parse(auth);
     
